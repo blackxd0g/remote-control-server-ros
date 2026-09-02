@@ -42,8 +42,8 @@ async function downloadBundle() {
     <p>{{ tr('Remote Control Server остаётся бесплатным. Поддержка помогает тестировать новые версии RouterOS и клиентов, сохранять совместимость протокола и развивать функции безопасности и управления.', 'Remote Control Server remains free. Support helps test new RouterOS and client releases, maintain protocol compatibility, and develop security and management features.') }}</p>
     <div class="project-links">
       <a class="primary-button compact" href="https://boosty.to/blackxdog/donate" target="_blank" rel="noopener noreferrer"><HeartHandshake :size="16" />{{ tr('Поддержать на Boosty', 'Support on Boosty') }}<ExternalLink :size="14" /></a>
-      <a class="secondary-button compact" href="https://github.com/blackxd0g/remote-control-server-routeros" target="_blank" rel="noopener noreferrer"><Github :size="16" />GitHub<ExternalLink :size="14" /></a>
-      <a class="secondary-button compact" href="https://hub.docker.com/r/blackxdog/remote-control-server-routeros" target="_blank" rel="noopener noreferrer"><Container :size="16" />Docker Hub<ExternalLink :size="14" /></a>
+      <a class="secondary-button compact" href="https://github.com/blackxd0g/remote-control-server-ros" target="_blank" rel="noopener noreferrer"><Github :size="16" />GitHub<ExternalLink :size="14" /></a>
+      <a class="secondary-button compact" href="https://hub.docker.com/r/blackxdog/remote-control-server-ros" target="_blank" rel="noopener noreferrer"><Container :size="16" />Docker Hub<ExternalLink :size="14" /></a>
     </div>
     <small>{{ tr('Подписка и разовый донат полностью добровольны и не ограничивают доступ к основным возможностям проекта.', 'Subscriptions and one-time donations are entirely voluntary and do not restrict access to the project’s core features.') }}</small>
   </article></section>

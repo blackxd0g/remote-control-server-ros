@@ -2,8 +2,8 @@
 
 This release introduces the independent Remote Control Server branding and its new native vector logo.
 
-- Docker image: `blackxdog/remote-control-server-routeros:2.0.1`
-- Floating tag: `blackxdog/remote-control-server-routeros:latest`
+- Docker image: `blackxdog/remote-control-server-ros:2.0.1`
+- Floating tag: `blackxdog/remote-control-server-ros:latest`
 - Product signature: `Remote Control Server · v2.0.1 · Compatible with the RustDesk client protocol · created by blackxdog`
 - Protocol compatibility with official RustDesk clients is preserved.
 - Existing data, environment aliases, database schema, ports, keys and RouterOS mounts remain compatible.

@@ -1,6 +1,6 @@
 services:
   rustdesk-server-routeros:
-    image: blackxdog/remote-control-server-routeros:2.0.1
+    image: blackxdog/remote-control-server-ros:2.0.1
     build:
       context: ..
       dockerfile: docker/all-in-one.Dockerfile

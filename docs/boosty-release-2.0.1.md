@@ -20,7 +20,7 @@
 
 ## Развёртывание
 
-Docker-образ: `blackxdog/remote-control-server-routeros:latest`
+Docker-образ: `blackxdog/remote-control-server-ros:latest`
 
 Поддерживаются all-in-one и раздельная схемы развёртывания. Данные и секреты сохраняются в `/data`; для production рекомендуется HTTPS через reverse proxy.
 

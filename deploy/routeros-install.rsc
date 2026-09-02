@@ -1,6 +1,6 @@
 # Remote Control Server automated deployment for RouterOS 7.22+
 # Review every value in this block before importing the script.
-:local image "blackxdog/remote-control-server-routeros:latest"
+:local image "blackxdog/remote-control-server-ros:latest"
 :local containerName "remote_control_server"
 :local envList "REMOTE_CONTROL_SERVER_ENV"
 :local mountList "remote_control_server_data"
