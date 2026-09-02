@@ -70,3 +70,42 @@ func TestContainLiveConnectionRevokesSessionAndClosesProjection(t *testing.T) {
 		t.Fatalf("session was not revoked: session=%#v err=%v", revoked, err)
 	}
 }
+
+func TestRelayLifecycleClosesPersistedProjection(t *testing.T) {
+	ctx := context.Background()
+	repository, err := sqlstore.Open("sqlite", filepath.Join(t.TempDir(), "relay-lifecycle.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repository.Close()
+	if err = repository.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	hub := events.NewHub()
+	tokens := auth.NewTokenManager([]byte("0123456789abcdef0123456789abcdef"), "art-rustdesk", "art-hbbs", time.Hour)
+	authService, err := auth.NewService(repository, tokens, hub, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mfaService, _ := mfa.New(repository, []byte("test-mfa-secret-0123456789012345"), mfa.ModeOptional, "Test")
+	handler := httpapi.New(authService, mfaService, audit.New(repository), repository, hub, []byte("internal-secret"), httpapi.NewLoginLimiter(5, time.Minute, time.Minute)).Handler()
+
+	request := httptest.NewRequest(http.MethodPost, "/internal/v1/relay/connections/state", strings.NewReader(`{"uuid":"relay-lifecycle-uuid","state":"active"}`))
+	request.Header.Set("X-RDS-Internal-Token", "internal-secret")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("active lifecycle rejected: status=%d body=%s", response.Code, response.Body.String())
+	}
+	request = httptest.NewRequest(http.MethodPost, "/internal/v1/relay/connections/state", strings.NewReader(`{"uuid":"relay-lifecycle-uuid","state":"closed"}`))
+	request.Header.Set("X-RDS-Internal-Token", "internal-secret")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("closed lifecycle rejected: status=%d body=%s", response.Code, response.Body.String())
+	}
+	record, err := repository.ConnectionRecord(ctx, "relay:relay-lifecycle-uuid")
+	if err != nil || record.ClosedAt == nil || record.Transport != "relay" {
+		t.Fatalf("relay projection was not closed: %#v err=%v", record, err)
+	}
+}

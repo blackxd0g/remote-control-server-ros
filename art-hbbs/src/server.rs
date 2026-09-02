@@ -264,11 +264,12 @@ impl RendezvousServer {
                                 })
                                 .await?
                         }
-                        Ok(_) => {
+                        Ok(decision) => {
                             self.process_relay(
                                 &mut ResponseConnection::Secure(&mut connection),
                                 address,
                                 request,
+                                decision,
                             )
                             .await?
                         }
@@ -386,11 +387,12 @@ impl RendezvousServer {
                                         })
                                         .await?
                                 }
-                                Ok(_) => {
+                                Ok(decision) => {
                                     self.process_relay(
                                         &mut ResponseConnection::WebSocket(&mut connection),
                                         address,
                                         request,
+                                        decision,
                                     )
                                     .await?
                                 }
@@ -480,6 +482,7 @@ impl RendezvousServer {
         connection: &mut ResponseConnection<'_>,
         controller: SocketAddr,
         mut request: art_core::protocol::RequestRelay,
+        decision: crate::gate::GateDecision,
     ) -> anyhow::Result<()> {
         let Some(target) = self.registry.get(&request.id) else {
             return connection
@@ -500,6 +503,14 @@ impl RendezvousServer {
             .sign_peer_key(&request.id, &target.public_key)?;
         self.issue_relay_permit(&request.uuid, &relay_server)
             .await?;
+        self.gate.record_relay_assignment(
+            &decision,
+            &request.id,
+            &controller.ip().to_string(),
+            request.conn_type,
+            &request.uuid,
+            &relay_server,
+        );
         request.socket_addr = encode_socket_addr(controller);
         request.relay_server = relay_server.clone();
         request.token.clear();

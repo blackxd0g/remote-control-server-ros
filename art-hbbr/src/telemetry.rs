@@ -1,6 +1,7 @@
 use std::{env, sync::Arc, time::Duration};
 
 use serde::Serialize;
+use tokio::sync::mpsc;
 
 use crate::metrics::RelayMetrics;
 
@@ -22,6 +23,40 @@ pub struct TelemetryConfig {
     port: u16,
     region: String,
     interval: Duration,
+}
+
+#[derive(Clone)]
+pub struct LifecycleReporter {
+    sender: mpsc::Sender<LifecycleReport>,
+}
+
+#[derive(Clone, Serialize)]
+struct LifecycleReport {
+    uuid: String,
+    state: &'static str,
+}
+
+impl Default for LifecycleReporter {
+    fn default() -> Self {
+        let (sender, receiver) = mpsc::channel(1);
+        drop(receiver);
+        Self { sender }
+    }
+}
+
+impl LifecycleReporter {
+    pub fn try_report(&self, uuid: &str, state: &'static str) {
+        if self
+            .sender
+            .try_send(LifecycleReport {
+                uuid: uuid.to_owned(),
+                state,
+            })
+            .is_err()
+        {
+            tracing::debug!(%uuid, %state, "relay lifecycle queue unavailable");
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -58,6 +93,31 @@ impl TelemetryConfig {
             region: env_value("ART_HBBR_REGION").unwrap_or_default(),
             interval,
         })
+    }
+
+    pub fn start_lifecycle_reporter(&self) -> LifecycleReporter {
+        let (sender, mut receiver) = mpsc::channel::<LifecycleReport>(1024);
+        let endpoint = format!(
+            "{}/internal/v1/relay/connections/state",
+            self.api_url.trim_end_matches('/')
+        );
+        let secret = self.internal_secret.clone();
+        tokio::spawn(async move {
+            let client = reqwest::Client::new();
+            while let Some(report) = receiver.recv().await {
+                if let Err(error) = client
+                    .post(&endpoint)
+                    .header("X-RDS-Internal-Token", &secret)
+                    .json(&report)
+                    .send()
+                    .await
+                    .and_then(reqwest::Response::error_for_status)
+                {
+                    tracing::warn!(%error, uuid = %report.uuid, state = %report.state, "relay lifecycle delivery failed");
+                }
+            }
+        });
+        LifecycleReporter { sender }
     }
 }
 

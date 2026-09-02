@@ -231,6 +231,9 @@ type ConnectionRecord struct {
 	TargetRustDeskID string     `json:"target_rustdesk_id"`
 	ConnectionType   int        `json:"connection_type"`
 	IP               string     `json:"ip,omitempty"`
+	Transport        string     `json:"transport,omitempty"`
+	RelayUUID        string     `json:"relay_uuid,omitempty"`
+	RelayServer      string     `json:"relay_server,omitempty"`
 	StartedAt        time.Time  `json:"started_at"`
 	LastSeenAt       time.Time  `json:"last_seen_at"`
 	ClosedAt         *time.Time `json:"closed_at,omitempty"`

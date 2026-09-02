@@ -9,12 +9,12 @@ use art_core::protocol::{RendezvousMessage, rendezvous_message};
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
 use prost::Message;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream, UdpSocket},
-    sync::Mutex,
+    sync::{Mutex, watch},
 };
 use tokio_tungstenite::{WebSocketStream, accept_async, tungstenite::Message as WebSocketMessage};
 
@@ -50,14 +50,32 @@ struct Permit {
 struct RelayState {
     pending: Mutex<HashMap<String, Pending>>,
     permits: Mutex<HashMap<String, Permit>>,
+    active: Mutex<HashMap<String, watch::Sender<bool>>>,
     metrics: Arc<RelayMetrics>,
+    lifecycle: telemetry::LifecycleReporter,
 }
 
 #[derive(Deserialize)]
 struct PermitMessage {
+    #[serde(default = "permit_action")]
+    action: String,
     token: String,
     uuid: String,
+    #[serde(default)]
     expires_in: u64,
+    #[serde(default)]
+    request_id: String,
+}
+
+fn permit_action() -> String {
+    "permit".to_owned()
+}
+
+#[derive(Serialize)]
+struct ControlResponse<'a> {
+    request_id: &'a str,
+    uuid: &'a str,
+    status: &'a str,
 }
 
 #[tokio::main]
@@ -73,11 +91,13 @@ async fn main() -> anyhow::Result<()> {
     let secret = fs::read_to_string(&secret_path)?.trim().to_owned();
     anyhow::ensure!(secret.len() >= 32, "internal secret is too short");
     let metrics = Arc::new(RelayMetrics::default());
+    let telemetry = telemetry::TelemetryConfig::from_env(secret.clone())?;
+    let lifecycle = telemetry.start_lifecycle_reporter();
     let state = Arc::new(RelayState {
         metrics: metrics.clone(),
+        lifecycle,
         ..RelayState::default()
     });
-    let telemetry = telemetry::TelemetryConfig::from_env(secret.clone())?;
     tokio::spawn(telemetry::run(telemetry, metrics));
     let control_socket = UdpSocket::bind(&control).await?;
     tokio::spawn(run_control(control_socket, state.clone(), secret));
@@ -115,7 +135,7 @@ async fn main() -> anyhow::Result<()> {
 async fn run_control(socket: UdpSocket, state: Arc<RelayState>, secret: String) {
     let mut buffer = vec![0u8; 4096];
     loop {
-        let Ok((length, _address)) = socket.recv_from(&mut buffer).await else {
+        let Ok((length, address)) = socket.recv_from(&mut buffer).await else {
             continue;
         };
         let Ok(message) = serde_json::from_slice::<PermitMessage>(&buffer[..length]) else {
@@ -131,14 +151,43 @@ async fn run_control(socket: UdpSocket, state: Arc<RelayState>, secret: String) 
         {
             continue;
         }
-        let lifetime = Duration::from_secs(message.expires_in.clamp(1, 300));
-        state.permits.lock().await.insert(
-            message.uuid,
-            Permit {
-                expires_at: Instant::now() + lifetime,
-                uses: 2,
-            },
-        );
+        if message.action == "terminate" {
+            let status = if terminate_relay(&state, &message.uuid).await {
+                "terminated"
+            } else {
+                "not_found"
+            };
+            if !message.request_id.is_empty()
+                && let Ok(payload) = serde_json::to_vec(&ControlResponse {
+                    request_id: &message.request_id,
+                    uuid: &message.uuid,
+                    status,
+                })
+            {
+                let _ = socket.send_to(&payload, address).await;
+            }
+        } else if message.action == "permit" {
+            let lifetime = Duration::from_secs(message.expires_in.clamp(1, 300));
+            state.permits.lock().await.insert(
+                message.uuid,
+                Permit {
+                    expires_at: Instant::now() + lifetime,
+                    uses: 2,
+                },
+            );
+        }
+    }
+}
+
+async fn terminate_relay(state: &RelayState, uuid: &str) -> bool {
+    state.permits.lock().await.remove(uuid);
+    let pending = state.pending.lock().await.remove(uuid).is_some();
+    let active = state.active.lock().await.remove(uuid);
+    if let Some(sender) = active {
+        sender.send_replace(true);
+        true
+    } else {
+        pending
     }
 }
 
@@ -195,7 +244,19 @@ async fn accept_authorized(
     let peer = state.pending.lock().await.remove(&uuid);
     if let Some(peer) = peer {
         let _active = state.metrics.start();
-        relay_connections(connection, peer.connection, state.metrics.clone()).await?;
+        let (cancel_tx, cancel_rx) = watch::channel(false);
+        state.active.lock().await.insert(uuid.clone(), cancel_tx);
+        state.lifecycle.try_report(&uuid, "active");
+        let result = relay_connections(
+            connection,
+            peer.connection,
+            state.metrics.clone(),
+            cancel_rx,
+        )
+        .await;
+        state.active.lock().await.remove(&uuid);
+        state.lifecycle.try_report(&uuid, "closed");
+        result?;
     } else {
         state.pending.lock().await.insert(
             uuid,
@@ -212,19 +273,23 @@ async fn relay_connections(
     first: RelayConnection,
     second: RelayConnection,
     metrics: Arc<RelayMetrics>,
+    mut cancel: watch::Receiver<bool>,
 ) -> anyhow::Result<()> {
     match (first, second) {
         (RelayConnection::Tcp(first), RelayConnection::Tcp(second)) => {
             let mut first = metrics.meter(first);
             let mut second = metrics.meter(second);
-            tokio::io::copy_bidirectional(&mut first, &mut second).await?;
+            tokio::select! {
+                result = tokio::io::copy_bidirectional(&mut first, &mut second) => { result?; }
+                _ = cancel.changed() => {}
+            }
         }
         (RelayConnection::WebSocket(first), RelayConnection::WebSocket(second)) => {
-            relay_websockets(*first, *second, metrics).await?
+            relay_websockets(*first, *second, metrics, cancel).await?
         }
         (RelayConnection::WebSocket(websocket), RelayConnection::Tcp(tcp))
         | (RelayConnection::Tcp(tcp), RelayConnection::WebSocket(websocket)) => {
-            relay_mixed(*websocket, tcp, metrics).await?
+            relay_mixed(*websocket, tcp, metrics, cancel).await?
         }
     }
     Ok(())
@@ -234,11 +299,13 @@ async fn relay_websockets(
     first: WebSocketStream<TcpStream>,
     second: WebSocketStream<TcpStream>,
     metrics: Arc<RelayMetrics>,
+    mut cancel: watch::Receiver<bool>,
 ) -> anyhow::Result<()> {
     let (mut first_tx, mut first_rx) = first.split();
     let (mut second_tx, mut second_rx) = second.split();
     loop {
         tokio::select! {
+            _=cancel.changed()=>{break},
             value=first_rx.next()=>{let Some(value)=value else {break};let value=value?;if let WebSocketMessage::Binary(data)=&value{metrics.record_bytes(data.len())}second_tx.send(value).await?;},
             value=second_rx.next()=>{let Some(value)=value else {break};let value=value?;if let WebSocketMessage::Binary(data)=&value{metrics.record_bytes(data.len())}first_tx.send(value).await?;},
         }
@@ -250,11 +317,13 @@ async fn relay_mixed(
     websocket: WebSocketStream<TcpStream>,
     mut tcp: TcpStream,
     metrics: Arc<RelayMetrics>,
+    mut cancel: watch::Receiver<bool>,
 ) -> anyhow::Result<()> {
     let (mut ws_tx, mut ws_rx) = websocket.split();
     let mut buffer = vec![0u8; 64 * 1024];
     loop {
         tokio::select! {
+            _=cancel.changed()=>{break},
             value=ws_rx.next()=>{let Some(value)=value else {break};match value?{WebSocketMessage::Binary(data)=>{metrics.record_bytes(data.len());tcp.write_all(&data).await?},WebSocketMessage::Close(_)=>break,WebSocketMessage::Ping(data)=>ws_tx.send(WebSocketMessage::Pong(data)).await?,_=>{}}},
             read=tcp.read(&mut buffer)=>{let count=read?;if count==0{break}metrics.record_bytes(count);ws_tx.send(WebSocketMessage::Binary(Bytes::copy_from_slice(&buffer[..count]))).await?;},
         }
@@ -304,7 +373,10 @@ mod tests {
     use std::sync::Arc;
 
     use futures_util::{SinkExt, StreamExt};
-    use tokio::net::{TcpListener, TcpStream};
+    use tokio::{
+        net::{TcpListener, TcpStream},
+        sync::watch,
+    };
     use tokio_tungstenite::{WebSocketStream, accept_async, client_async, tungstenite::Message};
 
     use super::{RelayMetrics, relay_websockets};
@@ -329,8 +401,9 @@ mod tests {
         let (mut second_client, second_server) = websocket_pair().await;
         let metrics = Arc::new(RelayMetrics::default());
         let relay_metrics = metrics.clone();
+        let (_cancel_tx, cancel_rx) = watch::channel(false);
         let relay = tokio::spawn(async move {
-            relay_websockets(first_server, second_server, relay_metrics)
+            relay_websockets(first_server, second_server, relay_metrics, cancel_rx)
                 .await
                 .unwrap();
         });
@@ -346,5 +419,28 @@ mod tests {
         first_client.close(None).await.unwrap();
         second_client.close(None).await.unwrap();
         relay.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn active_relay_stops_when_control_requests_termination() {
+        let (_first_client, first_server) = websocket_pair().await;
+        let (_second_client, second_server) = websocket_pair().await;
+        let state = Arc::new(super::RelayState::default());
+        let (cancel_tx, cancel_rx) = watch::channel(false);
+        state
+            .active
+            .lock()
+            .await
+            .insert("relay-1".into(), cancel_tx);
+        let metrics = state.metrics.clone();
+        let relay = tokio::spawn(async move {
+            relay_websockets(first_server, second_server, metrics, cancel_rx).await
+        });
+        assert!(super::terminate_relay(&state, "relay-1").await);
+        tokio::time::timeout(std::time::Duration::from_secs(1), relay)
+            .await
+            .expect("relay did not stop")
+            .unwrap()
+            .unwrap();
     }
 }

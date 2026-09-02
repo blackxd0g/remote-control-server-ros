@@ -216,6 +216,7 @@ func (s *Store) Migrate(ctx context.Context) error {
             actor_user_id TEXT NOT NULL DEFAULT '', actor_session_id TEXT NOT NULL DEFAULT '',
             controller_device_id TEXT NOT NULL DEFAULT '', controller_name TEXT NOT NULL DEFAULT '', controller_login TEXT NOT NULL DEFAULT '',
             target_rustdesk_id TEXT NOT NULL, connection_type INTEGER NOT NULL DEFAULT 0, ip TEXT NOT NULL DEFAULT '',
+            transport TEXT NOT NULL DEFAULT '', relay_uuid TEXT NOT NULL DEFAULT '', relay_server TEXT NOT NULL DEFAULT '',
             started_at BIGINT NOT NULL, last_seen_at BIGINT NOT NULL, closed_at BIGINT
         )`,
 		`CREATE INDEX IF NOT EXISTS idx_connections_last_seen ON connection_records(last_seen_at)`,
@@ -338,6 +339,15 @@ func (s *Store) Migrate(ctx context.Context) error {
 	}
 	if err := s.ensureTableColumn(ctx, "address_book_entries", "tags", "tags TEXT NOT NULL DEFAULT '[]'"); err != nil {
 		return err
+	}
+	for _, column := range []struct{ name, definition string }{
+		{"transport", "transport TEXT NOT NULL DEFAULT ''"},
+		{"relay_uuid", "relay_uuid TEXT NOT NULL DEFAULT ''"},
+		{"relay_server", "relay_server TEXT NOT NULL DEFAULT ''"},
+	} {
+		if err := s.ensureTableColumn(ctx, "connection_records", column.name, column.definition); err != nil {
+			return err
+		}
 	}
 	if err := s.ensureTableColumn(ctx, "client_builds", "artifact", "artifact TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err

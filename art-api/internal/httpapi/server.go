@@ -29,6 +29,7 @@ import (
 	"github.com/art-rustdesk/platform/art-api/internal/oidcauth"
 	"github.com/art-rustdesk/platform/art-api/internal/presence"
 	relayservice "github.com/art-rustdesk/platform/art-api/internal/relay"
+	"github.com/art-rustdesk/platform/art-api/internal/relaycontrol"
 	"github.com/art-rustdesk/platform/art-api/internal/runtimeconfig"
 	strategyservice "github.com/art-rustdesk/platform/art-api/internal/strategy"
 	webhookservice "github.com/art-rustdesk/platform/art-api/internal/webhook"
@@ -61,13 +62,15 @@ type Server struct {
 	configuration       *runtimeconfig.Service
 	metricsToken        []byte
 	trustedProxies      []netip.Prefix
+	relayControl        *relaycontrol.Client
 }
 
 func New(authService *auth.Service, mfaService *mfa.Service, auditService *audit.Service, repository domain.Repository,
 	hub *events.Hub, internalSecret []byte, loginLimiter *LoginLimiter) *Server {
 	server := &Server{mux: http.NewServeMux(), auth: authService, mfa: mfaService, audit: auditService,
 		repository: repository, hub: hub, internalSecret: internalSecret, loginLimiter: loginLimiter,
-		addressBooks: addressbookservice.New(repository), strategies: strategyservice.New(repository), runtime: newRuntimeState()}
+		addressBooks: addressbookservice.New(repository), strategies: strategyservice.New(repository), runtime: newRuntimeState(),
+		relayControl: relaycontrol.New(internalSecret)}
 	server.routes()
 	return server
 }
@@ -325,6 +328,7 @@ func (s *Server) routes() {
 	s.mux.Handle("POST /internal/v1/audit/connections", s.requireInternal(http.HandlerFunc(s.connectionAudit)))
 	s.mux.Handle("POST /internal/v1/devices/heartbeat", s.requireInternal(http.HandlerFunc(s.deviceHeartbeat)))
 	s.mux.Handle("POST /internal/v1/relay/telemetry", s.requireInternal(http.HandlerFunc(s.relayTelemetry)))
+	s.mux.Handle("POST /internal/v1/relay/connections/state", s.requireInternal(http.HandlerFunc(s.relayConnectionState)))
 	s.mux.Handle("POST /internal/v1/services/heartbeat", s.requireInternal(http.HandlerFunc(s.serviceHeartbeat)))
 	s.mux.Handle("GET /", webui.Handler())
 }
@@ -2278,7 +2282,7 @@ func (s *Server) connectionAudit(response http.ResponseWriter, request *http.Req
 		writeError(response, http.StatusBadRequest, "invalid audit event")
 		return
 	}
-	if event.Type != "connection_allowed" && event.Type != "connection_denied" {
+	if event.Type != "connection_allowed" && event.Type != "connection_denied" && event.Type != "connection_relay_assigned" {
 		writeError(response, http.StatusBadRequest, "invalid audit event type")
 		return
 	}
@@ -2306,7 +2310,47 @@ func (s *Server) connectionAudit(response http.ResponseWriter, request *http.Req
 		writeError(response, http.StatusInternalServerError, "audit unavailable")
 		return
 	}
+	if event.Type == "connection_relay_assigned" {
+		repository, ok := s.repository.(interface {
+			UpsertConnection(context.Context, domain.ConnectionRecord) error
+		})
+		relayUUID := metadataText(event.Metadata, "relay_uuid")
+		if ok && relayUUID != "" {
+			now := time.Now().UTC()
+			record := domain.ConnectionRecord{
+				Key: "relay:" + relayUUID, ActorUserID: event.ActorUserID, ActorSessionID: event.ActorSessionID,
+				ControllerDevice: event.ControllerDevice, ControllerName: metadataText(event.Metadata, "controller_display_name"),
+				ControllerLogin: metadataText(event.Metadata, "controller_login"), TargetRustDeskID: event.TargetRustDeskID,
+				ConnectionType: metadataInt(event.Metadata, "connection_type"), IP: event.IP, Transport: "relay",
+				RelayUUID: relayUUID, RelayServer: metadataText(event.Metadata, "relay_server"), StartedAt: now, LastSeenAt: now,
+			}
+			if err := repository.UpsertConnection(request.Context(), record); err != nil {
+				writeError(response, http.StatusInternalServerError, "connection projection unavailable")
+				return
+			}
+		}
+	}
 	writeJSON(response, http.StatusAccepted, nil)
+}
+
+func metadataText(metadata map[string]any, key string) string {
+	if value, ok := metadata[key]; ok && value != nil {
+		return strings.TrimSpace(fmt.Sprint(value))
+	}
+	return ""
+}
+
+func metadataInt(metadata map[string]any, key string) int {
+	switch value := metadata[key].(type) {
+	case float64:
+		return int(value)
+	case int:
+		return value
+	case int64:
+		return int(value)
+	default:
+		return 0
+	}
 }
 
 func (s *Server) requireAuth(next http.Handler) http.Handler {

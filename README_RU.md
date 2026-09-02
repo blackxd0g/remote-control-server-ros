@@ -7,7 +7,7 @@
 > контроль доступа, relay, API и современная web-консоль в одном решении.
 
 [![Docker Image](https://img.shields.io/badge/Docker%20Hub-blackxdog%2Fremote--control--server--ros-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/blackxdog/remote-control-server-ros)
-![Версия](https://img.shields.io/badge/version-2.0.1-0A84FF)
+![Версия](https://img.shields.io/badge/version-2.1.0-0A84FF)
 ![Платформа](https://img.shields.io/badge/platform-linux%2Famd64-success)
 ![RouterOS](https://img.shields.io/badge/RouterOS-7.22%2B-blue)
 ![Протокол](https://img.shields.io/badge/protocol-RustDesk%20compatible-7B61FF)

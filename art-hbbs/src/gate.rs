@@ -15,6 +15,9 @@ pub struct ConnectionGate {
 #[derive(Debug)]
 pub struct GateDecision {
     pub force_relay: bool,
+    pub user_id: String,
+    pub session_id: String,
+    pub controller_device_id: String,
 }
 
 impl ConnectionGate {
@@ -67,6 +70,35 @@ impl ConnectionGate {
             .unwrap_or_else(|| fallback.to_owned())
     }
 
+    pub fn record_relay_assignment(
+        &self,
+        decision: &GateDecision,
+        target: &str,
+        peer_ip: &str,
+        connection_type: i32,
+        relay_uuid: &str,
+        relay_server: &str,
+    ) {
+        self.audit.try_record(ConnectionAudit::new(
+            "connection_relay_assigned",
+            decision.user_id.clone(),
+            decision.session_id.clone(),
+            decision.controller_device_id.clone(),
+            target.to_owned(),
+            peer_ip.to_owned(),
+            "allowed",
+            String::new(),
+            serde_json::json!({
+                "connection_type": connection_type,
+                "request_kind": "relay_request",
+                "authorization_stage": "relay_assigned",
+                "relay_uuid": relay_uuid,
+                "relay_server": relay_server,
+                "transport": "relay"
+            }),
+        ));
+    }
+
     fn authorize(
         &self,
         token: &str,
@@ -90,11 +122,21 @@ impl ConnectionGate {
                     }
                 };
                 self.audit.try_record(ConnectionAudit::new("connection_allowed", decision.user_id.clone(), decision.session_id.clone(), decision.controller_device_id.clone(), target.to_owned(), peer_ip.to_owned(), "allowed", String::new(), serde_json::json!({"connection_type": connection_type, "request_kind": request_kind, "authorization_stage": "pre_rendezvous"})));
-                Ok(GateDecision { force_relay })
+                Ok(GateDecision {
+                    force_relay,
+                    user_id: decision.user_id,
+                    session_id: decision.session_id,
+                    controller_device_id: decision.controller_device_id,
+                })
             }
             Ok(None) => {
                 self.audit.try_record(ConnectionAudit::new("connection_allowed", String::new(), String::new(), String::new(), target.to_owned(), peer_ip.to_owned(), "allowed", String::new(), serde_json::json!({"connection_type": connection_type, "request_kind": request_kind, "authorization_stage": "pre_rendezvous", "anonymous": true})));
-                Ok(GateDecision { force_relay: false })
+                Ok(GateDecision {
+                    force_relay: false,
+                    user_id: String::new(),
+                    session_id: String::new(),
+                    controller_device_id: String::new(),
+                })
             }
             Err(error) => {
                 let reason = error.to_string();

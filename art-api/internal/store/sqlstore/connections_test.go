@@ -20,12 +20,12 @@ func TestConnectionProjectionPersistsLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC().Truncate(time.Millisecond)
-	start := domain.ConnectionRecord{Key: "200:100:7:4", ActorUserID: "user-1", ControllerDevice: "100", TargetRustDeskID: "200", StartedAt: now.Add(-5 * time.Minute), LastSeenAt: now.Add(-5 * time.Minute)}
+	start := domain.ConnectionRecord{Key: "relay:relay-uuid", ActorUserID: "user-1", ControllerDevice: "100", TargetRustDeskID: "200", Transport: "relay", RelayUUID: "relay-uuid", RelayServer: "relay.example:21117", StartedAt: now.Add(-5 * time.Minute), LastSeenAt: now.Add(-5 * time.Minute)}
 	if err = store.UpsertConnection(ctx, start); err != nil {
 		t.Fatal(err)
 	}
 	loaded, err := store.ConnectionRecord(ctx, start.Key)
-	if err != nil || loaded.Key != start.Key || loaded.TargetRustDeskID != "200" {
+	if err != nil || loaded.Key != start.Key || loaded.TargetRustDeskID != "200" || loaded.Transport != "relay" || loaded.RelayUUID != "relay-uuid" || loaded.RelayServer != "relay.example:21117" {
 		t.Fatalf("unexpected connection lookup: %#v err=%v", loaded, err)
 	}
 	closed := now

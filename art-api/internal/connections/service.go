@@ -22,6 +22,9 @@ type Record struct {
 	TargetID         string         `json:"target_rustdesk_id"`
 	ConnectionType   int            `json:"connection_type"`
 	IP               string         `json:"ip,omitempty"`
+	Transport        string         `json:"transport,omitempty"`
+	RelayUUID        string         `json:"relay_uuid,omitempty"`
+	RelayServer      string         `json:"relay_server,omitempty"`
 	StartedAt        time.Time      `json:"started_at"`
 	LastSeenAt       time.Time      `json:"last_seen_at"`
 	ClosedAt         *time.Time     `json:"closed_at,omitempty"`
@@ -92,6 +95,7 @@ func BuildRecords(records []domain.ConnectionRecord, now time.Time) Snapshot {
 		values = append(values, Record{Key: value.Key, ActorUserID: value.ActorUserID, ActorSessionID: value.ActorSessionID,
 			ControllerDevice: value.ControllerDevice, ControllerName: value.ControllerName, ControllerLogin: value.ControllerLogin,
 			TargetID: value.TargetRustDeskID, ConnectionType: value.ConnectionType, IP: value.IP, StartedAt: value.StartedAt,
+			Transport: value.Transport, RelayUUID: value.RelayUUID, RelayServer: value.RelayServer,
 			LastSeenAt: value.LastSeenAt, ClosedAt: value.ClosedAt})
 	}
 	return finalize(values, now)

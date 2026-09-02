@@ -59,9 +59,9 @@ export interface InfrastructureSample { timestamp:string; cpu_percent:number; me
 export interface ServiceCommand { id:string; service:string; target_instance:string; type:string; created_at:string; expires_at:string; acknowledged_at?:string; acknowledged_by?:string }
 export interface UserPresence { user_id:string; username:string; display_name:string; state:'online'|'idle'|'offline'|'pending'|'disabled'; last_seen_at?:string; client_device_id?:string; active_devices:number }
 export interface PresenceSnapshot { online:number; idle:number; offline:number; users:UserPresence[] }
-export interface LiveConnection { key:string; status:'active'|'stale'|'closed'; actor_user_id?:string; actor_session_id?:string; controller_device_id?:string; controller_name?:string; controller_login?:string; target_rustdesk_id:string; connection_type:number; ip?:string; started_at:string; last_seen_at:string; closed_at?:string; duration_seconds:number }
+export interface LiveConnection { key:string; status:'active'|'stale'|'closed'; actor_user_id?:string; actor_session_id?:string; controller_device_id?:string; controller_name?:string; controller_login?:string; target_rustdesk_id:string; connection_type:number; ip?:string; transport?:'relay'|'direct'|string; relay_uuid?:string; relay_server?:string; started_at:string; last_seen_at:string; closed_at?:string; duration_seconds:number }
 export interface LiveConnectionSnapshot { active:number; stale:number; closed:number; items:LiveConnection[] }
-export interface ConnectionContainment { status:'contained'|'already_closed'; session_revoked?:boolean; new_connections_blocked?:boolean; transport_interrupted?:boolean; connection:LiveConnection }
+export interface ConnectionContainment { status:'contained'|'already_closed'; session_revoked?:boolean; new_connections_blocked?:boolean; transport_interrupted?:boolean; transport_status?:'terminated'|'not_found'|'unconfirmed'|'not_available'; connection:LiveConnection }
 export interface DiagnosticCheck { name:string; status:'ok'|'warning'|'error'; message:string }
 export interface Diagnostics { status:'ok'|'warning'|'error'; checked_at:string; checks:DiagnosticCheck[]; auth_cache_source_id:string; auth_cache_revision:number; trusted_proxy_count:number }
 export interface DashboardLayout { version:number; order:string[]; hidden:string[] }
