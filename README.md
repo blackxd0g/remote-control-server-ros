@@ -3,13 +3,13 @@
 # Remote Control Server
 
 > Lightweight self-hosted remote-control platform compatible with the RustDesk client protocol.
-> Built for `linux/amd64`, MikroTik CHR, and RouterOS containers with authentication,
-> access control, relay, API, and a modern web console in one deployment.
+> Built for `linux/amd64`, `linux/arm64`, MikroTik CHR, and RouterOS
+> containers with authentication, access control, relay, API, and a modern web console.
 
 [![GitHub release](https://img.shields.io/github/v/release/blackxd0g/remote-control-server-ros?label=release)](https://github.com/blackxd0g/remote-control-server-ros/releases)
 [![Docker Pulls](https://img.shields.io/docker/pulls/blackxdog/remote-control-server-ros?logo=docker&label=docker%20pulls)](https://hub.docker.com/r/blackxdog/remote-control-server-ros)
 [![Docker Image Size](https://img.shields.io/docker/image-size/blackxdog/remote-control-server-ros/latest?logo=docker&label=image%20size)](https://hub.docker.com/r/blackxdog/remote-control-server-ros)
-![Platform](https://img.shields.io/badge/arch-linux%2Famd64-success)
+![Platform](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-success)
 ![RouterOS](https://img.shields.io/badge/RouterOS-7.22%2B-blue)
 ![Protocol](https://img.shields.io/badge/protocol-RustDesk%20compatible-7B61FF)
 [![Boosty](https://img.shields.io/badge/Boosty-support-f15f2c?logo=boosty&logoColor=white)](https://boosty.to/blackxdog/donate)
@@ -75,6 +75,8 @@ Configure the client with:
 
 The installer prepares the VETH network, persistent `/data` mount, environment,
 firewall rules, and the `blackxdog/remote-control-server-ros:latest` container.
+The multi-architecture manifest automatically selects the correct image for CHR,
+RB5009 and hAP ax3. ARM32 devices such as RB3011 and RB4011 are not supported.
 
 ### 1. Enable containers
 
@@ -97,18 +99,14 @@ Paste this snippet into the MikroTik terminal:
 :put ("Downloaded " . $dst . ". Review its configuration block before import.")
 ```
 
-Open `routeros-install.rsc` in **Files**, then review the configuration block at
-the top, especially:
+Open `routeros-install.rsc` in **Files** and review its network settings. At
+startup, the installer asks for storage, the public DNS hostname, the administrator
+name, and an optional bootstrap password.
 
-```routeros
-:local publicHost "remote.example.net"
-:local dataRoot "Containers/remote-control-server"
-:local adminUsername "admin"
-:local adminPassword ""
-```
-
-An empty `adminPassword` is recommended: the server creates a random one-time
-bootstrap password inside the persistent data directory.
+Press Enter for the administrator name to use `admin`. Leaving the password empty
+is recommended: the server creates a random one-time bootstrap password inside the
+persistent data directory. `/terminal ask` is not a masked password widget, so use
+a trusted SSH or WinBox session.
 
 ### 3. Install and start
 
@@ -128,13 +126,23 @@ and starts the updated container.
 |---|---|---|
 | `image` | `blackxdog/remote-control-server-ros:latest` | Published container image |
 | `containerName` | `remote_control_server` | RouterOS container name |
-| `dataRoot` | `Containers/remote-control-server` | Persistent storage and extraction root |
-| `publicHost` | required | Public DNS name used by clients |
+| `storageChoice` | prompted | `usb1` or built-in `system` storage |
+| `dataRoot` | calculated automatically | Persistent storage and extraction root |
+| `publicHost` | prompted, required | Public DNS name used by clients |
+| `adminUsername` | `admin` | Prompted; Enter keeps `admin` |
+| `adminPassword` | empty | Enter lets the server generate a one-time password |
 | `containerAddress` | `172.31.255.2/30` | Isolated VETH address |
 | `wanList` | `WAN` | Interface list used by published protocol ports |
 
+| MikroTik | RouterOS architecture | Container platform | Guidance |
+|---|---|---|---|
+| CHR / x86_64 | `x86_64` | `linux/amd64` | Recommended for large deployments |
+| RB5009 / hAP ax3 | `arm64` | `linux/arm64` | Recommended physical RouterOS targets |
+| RB3011 / RB4011 | `arm` | Unsupported | ARM32 is intentionally excluded |
+
 > [!IMPORTANT]
-> Check `dataRoot`, the `172.31.255.0/30` link network, the `WAN` interface list,
+> When selecting `system`, make sure internal storage has enough free space. Check
+> the `172.31.255.0/30` link network, the `WAN` interface list,
 > and firewall policy before importing the script. Review fetched scripts before
 > execution; for production, prefer a versioned release URL instead of `main`.
 
@@ -200,9 +208,12 @@ The server generates shared JWT and identity secrets once and reuses them across
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-cargo build --workspace --release --target x86_64-unknown-linux-musl
+cargo build --workspace --release
 
 (cd art-web && pnpm exec vue-tsc --noEmit && pnpm build)
+
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -f docker/all-in-one.Dockerfile .
 ```
 
 ## 📚 Documentation

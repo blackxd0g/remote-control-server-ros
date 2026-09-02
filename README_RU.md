@@ -3,13 +3,13 @@
 # Remote Control Server
 
 > Лёгкая self-hosted платформа удалённого управления, совместимая с протоколом клиента RustDesk.
-> Разработана для `linux/amd64`, MikroTik CHR и контейнеров RouterOS: аутентификация,
-> контроль доступа, relay, API и современная web-консоль в одном решении.
+> Разработана для `linux/amd64`, `linux/arm64`, MikroTik CHR и
+> контейнеров RouterOS: аутентификация, контроль доступа, relay, API и web-консоль.
 
 [![GitHub release](https://img.shields.io/github/v/release/blackxd0g/remote-control-server-ros?label=release)](https://github.com/blackxd0g/remote-control-server-ros/releases)
 [![Docker Pulls](https://img.shields.io/docker/pulls/blackxdog/remote-control-server-ros?logo=docker&label=docker%20pulls)](https://hub.docker.com/r/blackxdog/remote-control-server-ros)
 [![Docker Image Size](https://img.shields.io/docker/image-size/blackxdog/remote-control-server-ros/latest?logo=docker&label=image%20size)](https://hub.docker.com/r/blackxdog/remote-control-server-ros)
-![Платформа](https://img.shields.io/badge/arch-linux%2Famd64-success)
+![Платформа](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-success)
 ![RouterOS](https://img.shields.io/badge/RouterOS-7.22%2B-blue)
 ![Протокол](https://img.shields.io/badge/protocol-RustDesk%20compatible-7B61FF)
 [![Boosty](https://img.shields.io/badge/Boosty-поддержать-f15f2c?logo=boosty&logoColor=white)](https://boosty.to/blackxdog/donate)
@@ -76,6 +76,8 @@ docker compose -f deploy/compose.all-in-one.yaml exec rustdesk-server-routeros \
 
 Установщик создаёт VETH-сеть, постоянный mount `/data`, ENV, правила firewall и
 контейнер `blackxdog/remote-control-server-ros:latest`.
+Multi-architecture manifest автоматически выберет нужный образ для CHR,
+RB5009 и hAP ax3. Устройства ARM32, включая RB3011 и RB4011, не поддерживаются.
 
 ### 1. Включите контейнеры
 
@@ -98,18 +100,14 @@ RouterOS время. Нужны пакет `container` и `device-mode container
 :put ("Downloaded " . $dst . ". Review its configuration block before import.")
 ```
 
-Откройте `routeros-install.rsc` в разделе **Files** и проверьте блок настроек в
-начале файла, особенно:
+Откройте `routeros-install.rsc` в разделе **Files** и проверьте сетевые параметры.
+При запуске установщик запросит хранилище, публичное DNS-имя, имя администратора
+и необязательный bootstrap-пароль.
 
-```routeros
-:local publicHost "remote.example.net"
-:local dataRoot "Containers/remote-control-server"
-:local adminUsername "admin"
-:local adminPassword ""
-```
-
-Пустой `adminPassword` — рекомендуемый вариант: сервер создаст случайный одноразовый
-bootstrap-пароль в постоянном каталоге данных.
+Для имени администратора Enter означает `admin`. Пустой пароль — рекомендуемый
+вариант: сервер создаст случайный одноразовый bootstrap-пароль в постоянном
+каталоге данных. `/terminal ask` не является скрытым password-полем, поэтому
+используйте доверенную SSH- или WinBox-сессию.
 
 ### 3. Установите и запустите
 
@@ -130,13 +128,23 @@ bootstrap-пароль в постоянном каталоге данных.
 |---|---|---|
 | `image` | `blackxdog/remote-control-server-ros:latest` | Публикуемый образ контейнера |
 | `containerName` | `remote_control_server` | Имя контейнера RouterOS |
-| `dataRoot` | `Containers/remote-control-server` | Постоянные данные и каталог распаковки |
-| `publicHost` | обязательно | Публичное DNS-имя для клиентов |
+| `storageChoice` | запрос при запуске | `usb1` или встроенный `system` |
+| `dataRoot` | вычисляется автоматически | Постоянные данные и каталог распаковки |
+| `publicHost` | запрос, обязательно | Публичное DNS-имя для клиентов |
+| `adminUsername` | `admin` | Запрашивается; Enter оставляет `admin` |
+| `adminPassword` | пусто | Enter включает генерацию одноразового пароля сервером |
 | `containerAddress` | `172.31.255.2/30` | Адрес изолированного VETH |
 | `wanList` | `WAN` | Interface list для публикации протокольных портов |
 
+| MikroTik | Архитектура RouterOS | Платформа контейнера | Рекомендация |
+|---|---|---|---|
+| CHR / x86_64 | `x86_64` | `linux/amd64` | Для крупных установок |
+| RB5009 / hAP ax3 | `arm64` | `linux/arm64` | Рекомендуемые физические RouterOS-устройства |
+| RB3011 / RB4011 | `arm` | Не поддерживается | ARM32 намеренно исключён |
+
 > [!IMPORTANT]
-> До импорта проверьте `dataRoot`, сеть `172.31.255.0/30`, interface list `WAN`
+> При выборе `system` убедитесь, что внутренней памяти достаточно. До импорта
+> проверьте сеть `172.31.255.0/30`, interface list `WAN`
 > и действующие правила firewall. Проверяйте скачанные скрипты перед запуском;
 > для production лучше использовать URL конкретного релиза вместо ветки `main`.
 
@@ -202,9 +210,12 @@ PostgreSQL. Общие JWT- и identity-секреты создаются оди
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-cargo build --workspace --release --target x86_64-unknown-linux-musl
+cargo build --workspace --release
 
 (cd art-web && pnpm exec vue-tsc --noEmit && pnpm build)
+
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -f docker/all-in-one.Dockerfile .
 ```
 
 ## 📚 Документация

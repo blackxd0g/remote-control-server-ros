@@ -10,6 +10,7 @@ RUN pnpm build
 FROM --platform=$BUILDPLATFORM golang:1.26.7-alpine3.24 AS build
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
+ARG TARGETVARIANT
 WORKDIR /src
 COPY art-api/go.mod art-api/go.sum ./
 RUN go mod download
@@ -17,8 +18,10 @@ COPY VERSION /src/VERSION
 COPY art-api/ ./
 COPY --from=web-build /src/art-api/internal/webui/dist ./internal/webui/dist
 RUN test -z "$(gofmt -l .)" && go test ./... && go vet ./...
-RUN BUILD_VERSION="$(cat /src/VERSION)" && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags="-s -w -buildid= -X github.com/art-rustdesk/platform/art-api/internal/config.BuildVersion=${BUILD_VERSION}" -o /out/art-api ./cmd/art-api
+RUN BUILD_VERSION="$(cat /src/VERSION)" \
+    && if [ "$TARGETARCH" = "arm" ]; then export GOARM="${TARGETVARIANT#v}"; fi \
+    && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+       go build -trimpath -ldflags="-s -w -buildid= -X github.com/art-rustdesk/platform/art-api/internal/config.BuildVersion=${BUILD_VERSION}" -o /out/art-api ./cmd/art-api
 RUN mkdir -p /empty-data
 
 FROM scratch

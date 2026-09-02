@@ -9,15 +9,52 @@
 :local containerIP "172.31.255.2"
 :local routerAddress "172.31.255.1/30"
 :local routerIP "172.31.255.1"
-:local dataRoot "Containers/remote-control-server"
-:local publicHost "CHANGE_ME.example.com"
+:local storageChoice ""
+:local dataRoot ""
+:local publicHost ""
 :local trustedProxies ""
 :local adminUsername "admin"
 :local adminPassword ""
 :local wanList "WAN"
 
-:if ($publicHost = "CHANGE_ME.example.com") do={ :error "Set publicHost before import" }
+:while (($storageChoice != "usb1") && ($storageChoice != "system")) do={
+    :put "Select container storage: usb1 or system"
+    :set storageChoice [/terminal ask]
+}
+:if ($storageChoice = "usb1") do={
+    :if ([:len [/disk find where slot="usb1"]] = 0) do={
+        :error "usb1 disk was not found; attach it or run again and select system"
+    }
+    :set dataRoot "usb1/Containers/remote-control-server"
+} else={
+    :set dataRoot "Containers/remote-control-server"
+}
+:put ("Container storage selected: " . $storageChoice . "; data root: " . $dataRoot)
+
+:put "Enter public DNS hostname (example: remote.example.net):"
+:set publicHost [/terminal ask]
+:if ([:len $publicHost] = 0) do={ :error "Public DNS hostname cannot be empty" }
+:put "Enter bootstrap admin username or press Enter to use admin:"
+:set adminUsername [/terminal ask]
+:if ([:len $adminUsername] = 0) do={ :set adminUsername "admin" }
+:put "Enter optional bootstrap admin password or press Enter to generate a one-time password:"
+:set adminPassword [/terminal ask]
+:put ("Public host: " . $publicHost . "; bootstrap admin: " . $adminUsername)
+
+:local architecture [/system resource get architecture-name]
+:if (($architecture != "arm64") && ($architecture != "x86_64")) do={
+    :error ("Unsupported architecture: " . $architecture . ". Supported: arm64 and x86_64")
+}
+:if ([:len [/system package find where name="container" and disabled=no]] = 0) do={
+    :error "RouterOS container package is not installed or enabled"
+}
+:if ([/system device-mode get container] = false) do={
+    :error "Container mode is disabled; enable it with /system/device-mode/update container=yes"
+}
 :if ([:len [/container find where name=$containerName]] > 0) do={ :error "Container already exists; use routeros-update.rsc" }
+
+:put ("Detected RouterOS architecture: " . $architecture)
+:put "Docker Hub will select the matching linux/amd64 or linux/arm64 image."
 
 :local stamp ([/system clock get date] . "-" . [:pick [/system clock get time] 0 2] . [:pick [/system clock get time] 3 5] . [:pick [/system clock get time] 6 8])
 :local rootDir ($dataRoot . "/root-" . $stamp)
