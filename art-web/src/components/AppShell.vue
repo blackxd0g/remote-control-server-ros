@@ -31,9 +31,9 @@ const items = [
   { to: '/admin/webhooks', label: 'webhooks' as const, icon: Send, permission:'webhooks.read' },
   { to: '/admin/automation', label: 'automation' as const, icon: Workflow, permission:'automation.read' },
   { to: '/admin/client-profiles', label: 'clientProfiles' as const, icon: Laptop, permission:'client_profiles.read' },
-  { to: '/admin/settings', label: 'settings' as const, icon: Settings, permission:'settings.read' },
   { to: '/admin/backups', label: 'backups' as const, icon: DatabaseBackup, permission:'backup.read' },
   { to: '/admin/support', label: 'support' as const, icon: LifeBuoy, permission:'infrastructure.read' },
+  { to: '/admin/settings', label: 'settings' as const, icon: Settings, permission:'settings.read' },
 ]
 const visibleItems=computed(()=>items.filter(item=>!('permission' in item)||!item.permission||auth.can(item.permission)))
 

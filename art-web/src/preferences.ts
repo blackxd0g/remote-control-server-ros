@@ -5,7 +5,7 @@ export type Theme = 'system' | 'dark' | 'light'
 
 const messages = {
   en: {
-    administration: 'Administration', dashboard: 'Dashboard', users: 'Users', roles:'Roles', devices: 'Devices', groups: 'Groups', backups:'Backups', support:'Support',
+    administration: 'Administration', dashboard: 'Dashboard', users: 'Users', roles:'Roles', devices: 'Devices', groups:'Groups', backups:'Backups', support:'Diagnostics',
     addressBooks: 'Address Books', accessControl: 'Access Control', strategies: 'Strategies', sessions: 'Sessions', connections:'Connections',
     audit: 'Audit', relayServers: 'Relay Servers', webhooks:'Webhooks', automation:'Automation', clientProfiles:'Client Profiles', infrastructure: 'Infrastructure', settings: 'Settings', signOut: 'Sign out',
     coreServices: 'Core services', authOnline: 'Authentication online', theme: 'Theme', language: 'Language', system: 'System',
@@ -24,7 +24,7 @@ const messages = {
     welcomeBack: 'Welcome back', signInIntro: 'Sign in to Remote Control Server.', username: 'Username', password: 'Password', signIn: 'Sign in', signingIn: 'Signing in…',
   },
   ru: {
-    administration: 'Администрирование', dashboard: 'Обзор', users: 'Пользователи', roles:'Роли', devices: 'Устройства', groups: 'Группы', backups:'Резервные копии', support:'Поддержка',
+    administration: 'Администрирование', dashboard: 'Обзор', users: 'Пользователи', roles:'Роли', devices: 'Устройства', groups: 'Группы', backups:'Резервные копии', support:'Диагностика',
     addressBooks: 'Адресные книги', accessControl: 'Контроль доступа', strategies: 'Стратегии', sessions: 'Сессии', connections:'Подключения',
     audit: 'Аудит', relayServers: 'Relay-серверы', webhooks:'Webhooks', automation:'Автоматизация', clientProfiles:'Профили клиентов', infrastructure: 'Инфраструктура', settings: 'Настройки', signOut: 'Выйти',
     coreServices: 'Основные сервисы', authOnline: 'Аутентификация работает', theme: 'Тема', language: 'Язык', system: 'Системная',
