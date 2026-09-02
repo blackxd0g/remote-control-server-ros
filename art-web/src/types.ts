@@ -61,6 +61,7 @@ export interface UserPresence { user_id:string; username:string; display_name:st
 export interface PresenceSnapshot { online:number; idle:number; offline:number; users:UserPresence[] }
 export interface LiveConnection { key:string; status:'active'|'stale'|'closed'; actor_user_id?:string; actor_session_id?:string; controller_device_id?:string; controller_name?:string; controller_login?:string; target_rustdesk_id:string; connection_type:number; ip?:string; started_at:string; last_seen_at:string; closed_at?:string; duration_seconds:number }
 export interface LiveConnectionSnapshot { active:number; stale:number; closed:number; items:LiveConnection[] }
+export interface ConnectionContainment { status:'contained'|'already_closed'; session_revoked?:boolean; new_connections_blocked?:boolean; transport_interrupted?:boolean; connection:LiveConnection }
 export interface DiagnosticCheck { name:string; status:'ok'|'warning'|'error'; message:string }
 export interface Diagnostics { status:'ok'|'warning'|'error'; checked_at:string; checks:DiagnosticCheck[]; auth_cache_source_id:string; auth_cache_revision:number; trusted_proxy_count:number }
 export interface DashboardLayout { version:number; order:string[]; hidden:string[] }

@@ -3,10 +3,31 @@ package sqlstore
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/art-rustdesk/platform/art-api/internal/domain"
 )
+
+func (s *Store) ConnectionRecord(ctx context.Context, key string) (domain.ConnectionRecord, error) {
+	var value domain.ConnectionRecord
+	var started, lastSeen int64
+	var closed sql.NullInt64
+	err := s.db.QueryRowContext(ctx, s.bind(`SELECT connection_key,actor_user_id,actor_session_id,controller_device_id,controller_name,controller_login,target_rustdesk_id,connection_type,ip,started_at,last_seen_at,closed_at FROM connection_records WHERE connection_key=?`), key).
+		Scan(&value.Key, &value.ActorUserID, &value.ActorSessionID, &value.ControllerDevice, &value.ControllerName, &value.ControllerLogin, &value.TargetRustDeskID, &value.ConnectionType, &value.IP, &started, &lastSeen, &closed)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.ConnectionRecord{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.ConnectionRecord{}, err
+	}
+	value.StartedAt, value.LastSeenAt = fromMillis(started), fromMillis(lastSeen)
+	if closed.Valid {
+		at := fromMillis(closed.Int64)
+		value.ClosedAt = &at
+	}
+	return value, nil
+}
 
 func (s *Store) UpsertConnection(ctx context.Context, value domain.ConnectionRecord) error {
 	_, err := s.db.ExecContext(ctx, s.bind(`INSERT INTO connection_records

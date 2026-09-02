@@ -198,6 +198,7 @@ func (s *Server) routes() {
 	s.mux.Handle("GET /api/admin/sessions/summary", s.requirePermission(domain.PermissionSessionsRead, http.HandlerFunc(s.sessionSummary)))
 	s.mux.Handle("POST /api/admin/sessions/revoke", s.requirePermission(domain.PermissionSessionsRevoke, http.HandlerFunc(s.bulkRevokeSessions)))
 	s.mux.Handle("GET /api/admin/connections", s.requirePermission(domain.PermissionAuditRead, http.HandlerFunc(s.liveConnections)))
+	s.mux.Handle("POST /api/admin/connections/contain", s.requirePermission(domain.PermissionSessionsRevoke, http.HandlerFunc(s.containLiveConnection)))
 	s.mux.Handle("GET /api/admin/audit", s.requirePermission(domain.PermissionAuditRead, http.HandlerFunc(s.listAudit)))
 	s.mux.Handle("GET /api/admin/audit/query", s.requirePermission(domain.PermissionAuditRead, http.HandlerFunc(s.queryAudit)))
 	s.mux.Handle("GET /api/admin/audit/summary", s.requirePermission(domain.PermissionAuditRead, http.HandlerFunc(s.auditSummary)))

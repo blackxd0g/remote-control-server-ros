@@ -16,7 +16,7 @@ RUN go mod download
 COPY VERSION /src/VERSION
 COPY art-api/ ./
 COPY --from=web-build /src/art-api/internal/webui/dist ./internal/webui/dist
-RUN go test ./... && go vet ./...
+RUN test -z "$(gofmt -l .)" && go test ./... && go vet ./...
 RUN BUILD_VERSION="$(cat /src/VERSION)" && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -trimpath -ldflags="-s -w -buildid= -X github.com/art-rustdesk/platform/art-api/internal/config.BuildVersion=${BUILD_VERSION}" -o /out/art-api ./cmd/art-api
 

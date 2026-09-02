@@ -24,6 +24,10 @@ func TestConnectionProjectionPersistsLifecycle(t *testing.T) {
 	if err = store.UpsertConnection(ctx, start); err != nil {
 		t.Fatal(err)
 	}
+	loaded, err := store.ConnectionRecord(ctx, start.Key)
+	if err != nil || loaded.Key != start.Key || loaded.TargetRustDeskID != "200" {
+		t.Fatalf("unexpected connection lookup: %#v err=%v", loaded, err)
+	}
 	closed := now
 	update := start
 	update.ControllerName, update.ControllerLogin, update.LastSeenAt, update.ClosedAt = "Operator", "operator", now, &closed
@@ -43,5 +47,19 @@ func TestConnectionProjectionPersistsLifecycle(t *testing.T) {
 	values, err = store.ListConnectionRecords(ctx, now.Add(-time.Hour), 10)
 	if err != nil || len(values) != 0 {
 		t.Fatalf("closed record was not pruned: %#v err=%v", values, err)
+	}
+}
+
+func TestConnectionRecordNotFound(t *testing.T) {
+	store, err := Open("sqlite", filepath.Join(t.TempDir(), "connections.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err = store.Migrate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.ConnectionRecord(context.Background(), "missing"); err != domain.ErrNotFound {
+		t.Fatalf("expected domain.ErrNotFound, got %v", err)
 	}
 }

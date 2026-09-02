@@ -82,7 +82,8 @@ This document records the implemented production boundary. A capability is liste
 - Official-client `connection_started`, `connection_updated`, and `connection_closed` telemetry is correlated into active, stale, and recently closed connections.
 - Connection audit now resolves the authenticated operator and server session from the controller device, so the console can show who connected to each RustDesk ID.
 - The administration console provides an auto-refreshing connection center with controller device, target ID, connection type, IP address, start time, and duration.
-- Server-initiated termination of an already established peer stream remains planned; session revocation continues to block new connections immediately but deliberately does not claim to tear down an existing encrypted stream.
+- Administrators can contain an attributed live connection in one action: the operator session is revoked through the normal event-driven auth path, reconnects are blocked immediately, the live projection is closed, and the action is written to the immutable audit trail.
+- The API response and console explicitly report that transport interruption is not guaranteed. Exact termination of an established relay stream requires an HBBR relay UUID correlation channel; direct P2P streams cannot be reliably torn down after rendezvous by server design.
 
 ## 1.3 Security & Compliance — complete
 

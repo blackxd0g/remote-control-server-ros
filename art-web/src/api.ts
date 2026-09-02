@@ -1,4 +1,4 @@
-import type { ACLEvaluation, ACLRule, AutomationRule, AutomationRun, AddressBook, AddressBookEntry, AddressBookGrant, APIToken, AuditEvent, AuditPage, AuditQuery, AuditSummary, BackupArtifact, BackupInspection, BuilderWorker, ClientBuild, ClientProfile, ClientProfileAssignment, ClientProfileBundle, ClusterState, CurrentUser, DashboardLayout, Device, Diagnostics, Infrastructure, LiveConnectionSnapshot, LoginResponse, ManagedGroup, ManagedUser, Notification, OIDCIdentity, PresenceSnapshot, RelayMetric, RelayServer, RoleDefinition, RuntimeSettings, ServiceCommand, Session, SessionPage, SessionSummary, Strategy, StrategyEvaluation, StrategySettingDefinition, TOTPEnrollment, Webhook, WebhookDelivery } from './types'
+import type { ACLEvaluation, ACLRule, AutomationRule, AutomationRun, AddressBook, AddressBookEntry, AddressBookGrant, APIToken, AuditEvent, AuditPage, AuditQuery, AuditSummary, BackupArtifact, BackupInspection, BuilderWorker, ClientBuild, ClientProfile, ClientProfileAssignment, ClientProfileBundle, ClusterState, ConnectionContainment, CurrentUser, DashboardLayout, Device, Diagnostics, Infrastructure, LiveConnectionSnapshot, LoginResponse, ManagedGroup, ManagedUser, Notification, OIDCIdentity, PresenceSnapshot, RelayMetric, RelayServer, RoleDefinition, RuntimeSettings, ServiceCommand, Session, SessionPage, SessionSummary, Strategy, StrategyEvaluation, StrategySettingDefinition, TOTPEnrollment, Webhook, WebhookDelivery } from './types'
 
 const tokenKey = 'rds.access_token'
 const legacyTokenKey = 'art.access_token'
@@ -197,6 +197,7 @@ export const api = {
   infrastructure: () => request<Infrastructure>('/api/admin/infrastructure'),
   userPresence: () => request<PresenceSnapshot>('/api/admin/presence'),
   liveConnections: () => request<LiveConnectionSnapshot>('/api/admin/connections'),
+  containConnection: (key:string) => request<ConnectionContainment>('/api/admin/connections/contain',{method:'POST',body:JSON.stringify({key})}),
   dashboardLayout: () => request<DashboardLayout>('/api/admin/preferences/dashboard'),
   saveDashboardLayout: (layout:DashboardLayout) => request<DashboardLayout>('/api/admin/preferences/dashboard',{method:'PUT',body:JSON.stringify(layout)}),
   diagnostics: () => request<Diagnostics>('/api/admin/diagnostics'),
