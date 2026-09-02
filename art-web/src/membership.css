@@ -1,0 +1,16 @@
+.group-card { width:100%; color:var(--text); text-align:left; }
+.group-card.selectable { cursor:pointer; }
+.group-card.selectable:hover { border-color:var(--accent); transform:translateY(-1px); }
+.manage-hint { display:block; margin-top:10px; color:var(--accent); font-size:9px; }
+.membership-modal { width:min(620px,100%); }
+.membership-note { margin:-7px 0 15px; color:var(--muted); font-size:11px; }
+.membership-list { max-height:52vh; overflow:auto; border-top:1px solid var(--border); }
+.membership-list>div { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:11px; padding:10px 2px; border-bottom:1px solid var(--border); }
+.membership-list strong,.membership-list small { display:block; }
+.membership-list strong { font-size:11px; }
+.membership-list small { margin-top:3px; color:var(--muted); font-size:9px; }
+.membership-list .secondary-button.member { color:#f0a2ae; background:#321c26; }
+.grant-form { align-items:end; margin-bottom:16px; }
+.grant-form label { margin-bottom:0; }
+.grant-submit { display:flex; align-items:flex-end; padding-bottom:1px; }
+.grant-submit .primary-button { width:100%; }

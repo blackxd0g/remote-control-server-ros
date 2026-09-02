@@ -1,0 +1,38 @@
+services:
+  rustdesk-server-routeros:
+    image: blackxdog/remote-control-server-routeros:2.0.1
+    build:
+      context: ..
+      dockerfile: docker/all-in-one.Dockerfile
+    environment:
+      RDS_DATA_DIR: /data
+      RDS_DB_DRIVER: sqlite
+      RDS_RELAY_SERVER: ${RDS_PUBLIC_HOST:?set RDS_PUBLIC_HOST}:21117
+      RDS_REQUIRE_LOGIN: "true"
+      RDS_MFA_MODE: optional
+      RDS_REGISTRATION_ENABLED: ${RDS_REGISTRATION_ENABLED:-false}
+      RDS_REGISTRATION_AUTO_APPROVE: ${RDS_REGISTRATION_AUTO_APPROVE:-false}
+      RDS_BACKUP_INTERVAL: ${RDS_BACKUP_INTERVAL:-24h}
+      RDS_BACKUP_RETENTION: ${RDS_BACKUP_RETENTION:-14}
+      RDS_TRUSTED_PROXIES: ${RDS_TRUSTED_PROXIES:-}
+      RDS_OIDC_ISSUER: ${RDS_OIDC_ISSUER:-}
+      RDS_OIDC_CLIENT_ID: ${RDS_OIDC_CLIENT_ID:-}
+      RDS_OIDC_CLIENT_SECRET: ${RDS_OIDC_CLIENT_SECRET:-}
+      RDS_OIDC_REDIRECT_URL: ${RDS_OIDC_REDIRECT_URL:-}
+      RDS_OIDC_PROVIDER_NAME: ${RDS_OIDC_PROVIDER_NAME:-oidc}
+      RDS_OIDC_SCOPES: ${RDS_OIDC_SCOPES:-openid profile email}
+      RDS_OIDC_AUTO_REGISTER: ${RDS_OIDC_AUTO_REGISTER:-false}
+    volumes:
+      - rustdesk-server-data:/data
+    ports:
+      - "21114:21114/tcp"
+      - "21115:21115/tcp"
+      - "21116:21116/tcp"
+      - "21116:21116/udp"
+      - "21117:21117/tcp"
+      - "21118:21118/tcp"
+      - "21119:21119/tcp"
+    restart: unless-stopped
+
+volumes:
+  rustdesk-server-data:

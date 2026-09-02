@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 1240" role="img" aria-label="Remote Control Server">
+  <defs>
+    <linearGradient id="blue" x1="120" y1="1040" x2="1080" y2="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#06218F"/><stop offset=".42" stop-color="#1257E8"/><stop offset=".72" stop-color="#0EA5F4"/><stop offset="1" stop-color="#22D7E8"/>
+    </linearGradient>
+    <linearGradient id="route" x1="355" y1="780" x2="900" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1DD4E6"/><stop offset=".48" stop-color="#1597FF"/><stop offset="1" stop-color="#1E56E8"/>
+    </linearGradient>
+    <linearGradient id="node" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#18B9F6"/><stop offset="1" stop-color="#27E0E4"/></linearGradient>
+  </defs>
+  <g transform="translate(1240 0) scale(-1 1)">
+  <circle cx="620" cy="620" r="500" fill="none" stroke="url(#blue)" stroke-width="44"/>
+  <path d="M620 120C510 170 405 340 390 620c15 280 120 450 230 500M620 120c110 50 215 220 230 500-15 280-120 450-230 500M620 120v1000M170 300c180 90 720 90 900 0M125 620c220-30 770-30 990 0M170 940c180-90 720-90 900 0" fill="none" stroke="url(#blue)" stroke-width="24" stroke-linecap="round"/>
+  <g fill="url(#node)" stroke="#14AFFF" stroke-width="6"><circle cx="384" cy="405" r="35"/><circle cx="868" cy="400" r="33"/><circle cx="355" cy="835" r="32"/><circle cx="624" cy="890" r="32"/><circle cx="890" cy="762" r="34"/></g>
+  <path d="M386 414h279c105 0 150 31 150 91 0 55-47 87-132 87H566c-96 0-141 36-141 95 0 61 51 82 150 82h309" fill="none" stroke="url(#route)" stroke-width="106" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M386 414h279c105 0 150 31 150 91 0 55-47 87-132 87H566c-96 0-141 36-141 95 0 61 51 82 150 82h309" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="386" cy="414" r="69" fill="url(#route)"/><circle cx="386" cy="414" r="42" fill="url(#node)" stroke="#fff" stroke-width="11"/><circle cx="884" cy="769" r="74" fill="url(#route)"/><circle cx="884" cy="769" r="44" fill="url(#node)" stroke="#fff" stroke-width="11"/><circle cx="624" cy="552" r="34" fill="url(#node)" stroke="#fff" stroke-width="10"/>
+  </g>
+</svg>

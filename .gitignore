@@ -1,0 +1,11 @@
+work/
+outputs/
+data/
+target/
+art-api/bin/
+art-web/node_modules/
+art-web/dist/
+*.log
+.env
+.docker-auth/
+.pnpm-store/

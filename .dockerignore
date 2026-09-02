@@ -1,0 +1,12 @@
+.git
+.cargo
+work
+**/work
+outputs
+data
+target
+**/target
+node_modules
+**/node_modules
+*.zip
+*.exe

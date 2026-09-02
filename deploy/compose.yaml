@@ -1,0 +1,66 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api.Dockerfile
+    environment:
+      RDS_DATA_DIR: /data
+      RDS_DB_DRIVER: sqlite
+      RDS_REGISTRATION_ENABLED: ${RDS_REGISTRATION_ENABLED:-false}
+      RDS_OIDC_ISSUER: ${RDS_OIDC_ISSUER:-}
+      RDS_OIDC_CLIENT_ID: ${RDS_OIDC_CLIENT_ID:-}
+      RDS_OIDC_CLIENT_SECRET: ${RDS_OIDC_CLIENT_SECRET:-}
+      RDS_OIDC_REDIRECT_URL: ${RDS_OIDC_REDIRECT_URL:-}
+      RDS_OIDC_PROVIDER_NAME: ${RDS_OIDC_PROVIDER_NAME:-oidc}
+      RDS_OIDC_SCOPES: ${RDS_OIDC_SCOPES:-openid profile email}
+      RDS_OIDC_AUTO_REGISTER: ${RDS_OIDC_AUTO_REGISTER:-false}
+    volumes:
+      - rustdesk-server-data:/data
+    ports:
+      - "21114:21114"
+    restart: unless-stopped
+
+  hbbr:
+    build:
+      context: ..
+      dockerfile: docker/hbbr.Dockerfile
+    environment:
+      RDS_DATA_DIR: /data
+      RDS_API_INTERNAL_URL: http://api:21114
+      RDS_HBBR_PUBLIC_ADDRESS: ${RDS_PUBLIC_HOST:?set RDS_PUBLIC_HOST}:21117
+      RDS_HBBR_ID: builtin-hbbr
+    volumes:
+      - rustdesk-server-data:/data
+    ports:
+      - "21117:21117/tcp"
+      - "21119:21119/tcp"
+    expose:
+      - "21119/udp"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  hbbs:
+    build:
+      context: ..
+      dockerfile: docker/hbbs.Dockerfile
+    environment:
+      RDS_DATA_DIR: /data
+      RDS_API_INTERNAL_URL: http://api:21114
+      RDS_RELAY_SERVER: ${RDS_PUBLIC_HOST:?set RDS_PUBLIC_HOST}:21117
+      RDS_HBBR_CONTROL_ADDRESS: hbbr:21119
+      RDS_REQUIRE_LOGIN: "true"
+    volumes:
+      - rustdesk-server-data:/data
+    ports:
+      - "21115:21115/tcp"
+      - "21116:21116/tcp"
+      - "21116:21116/udp"
+      - "21118:21118/tcp"
+    restart: unless-stopped
+    depends_on:
+      - api
+      - hbbr
+
+volumes:
+  rustdesk-server-data:
