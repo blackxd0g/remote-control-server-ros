@@ -1,64 +1,153 @@
+**English** | [Русский](README_RU.md)
+
 # Remote Control Server
 
-[![Support on Boosty](https://img.shields.io/badge/Boosty-support-F15F2C?logo=boosty&logoColor=white)](https://boosty.to/blackxdog)
+> Lightweight self-hosted remote-control platform compatible with the RustDesk client protocol.
+> Built for `linux/amd64`, MikroTik CHR, and RouterOS containers with authentication,
+> access control, relay, API, and a modern web console in one deployment.
 
-Independent, clean-room, self-hosted remote-control server compatible with the RustDesk client protocol. It targets `linux/amd64` and includes a lightweight deployment path for MikroTik CHR/RouterOS containers.
+[![Docker Image](https://img.shields.io/badge/Docker%20Hub-blackxdog%2Fremote--control--server--routeros-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/blackxdog/remote-control-server-routeros)
+![Version](https://img.shields.io/badge/version-2.0.1-0A84FF)
+![Platform](https://img.shields.io/badge/platform-linux%2Famd64-success)
+![RouterOS](https://img.shields.io/badge/RouterOS-7.22%2B-blue)
+![Protocol](https://img.shields.io/badge/protocol-RustDesk%20compatible-7B61FF)
 
-Remote Control Server is not affiliated with RustDesk. RustDesk is a trademark of its respective owner; the name is used solely to describe protocol compatibility.
+## ✨ Features
 
-Development is supported by the community. You can support new releases and continued compatibility work on [Boosty](https://boosty.to/blackxdog).
+- 🔐 Mandatory client login before PunchHole or relay authorization.
+- 🎫 Argon2id passwords, server-side sessions, JWT, logout, revoke, and forced re-login.
+- 👥 Users, custom RBAC roles, user groups, and registration approval workflow.
+- 🖥 Device inventory, device groups, tags, ownership, online state, and deployment control.
+- 🛡 Pre-connection ACL enforcement for control, view, files, clipboard, tunnel, and terminal access.
+- 🧭 Personal and shared address books compatible with current official client routes.
+- ⚙️ Inherited Strategies for global, user, group, device, and device-group policies.
+- 📜 Audit of authentication, connections, denied requests, security changes, and file transfers.
+- 🔑 TOTP, generic OIDC, and encrypted LDAP / Active Directory integration.
+- 🌐 Multiple relay registration, health monitoring, telemetry, and load-aware selection.
+- 🔔 Signed webhooks, persistent notifications, backup scheduling, and automation.
+- 🧰 Managed-client profiles and an isolated builder-worker API boundary.
+- 📊 Responsive Vue 3 console with runtime, CPU, RAM, uptime, peer, session, and relay metrics.
+- 📦 Split scratch images and a compact all-in-one image for RouterOS.
 
-The platform now covers the planned authentication, access-control, infrastructure, and managed-client foundations:
+> [!NOTE]
+> Remote Control Server is an independent clean-room project and is not affiliated with RustDesk.
+> RustDesk is a trademark of its respective owner; the name is used only to describe protocol compatibility.
 
-- Rust `art-hbbs`, `art-hbbr`, and reusable `art-core`;
-- Go API with SQLite and PostgreSQL repository implementations;
-- official-client-compatible `/api/login`, `/api/logout`, `/api/me`, `/api/user/info`, and `/api/currentUser` routes;
-- Argon2id local passwords, persistent server-side sessions, strict HS256 JWT claims, logout/revoke/disable/force-relogin;
-- `PunchHoleRequest.token` and `RequestRelay.token` validation before target lookup, P2P instruction, or relay permit;
-- event-driven HBBS auth-cache updates plus periodic reconciliation and persisted last-valid cache;
-- RustDesk-compatible signed key exchange and encrypted TCP frames;
-- login and connection audit events;
-- embedded Vue 3 web console with operational users, custom RBAC roles, devices, groups, address books, ACL, strategies, sessions, audit, relay and infrastructure sections;
-- multiple relay registration, active health monitoring, event-driven HBBS relay cache and live HBBR connection/bandwidth telemetry;
-- live HBBS/HBBR heartbeats plus container CPU, RAM, uptime, rendezvous peer and aggregate relay metrics;
-- scratch split images and an Alpine all-in-one image.
-- local Argon2id authentication, TOTP, generic OIDC and encrypted LDAP/Active Directory authentication with explicit group mapping;
-- registration approval workflow, custom RBAC, scoped API deployment tokens and full session administration;
-- personal/shared address books compatible with current official RustDesk client routes;
-- device/user groups, pre-connection ACL enforcement and inherited Strategies;
-- persistent relay telemetry/history, regional load-aware relay selection and authenticated HBBS server control;
-- signed webhooks with retry history, SSRF protection and audit-event delivery;
-- persistent administrator notifications with security severities, unread state and RBAC-protected triage;
-- managed client profiles, scoped assignments, official heartbeat integration, signed configuration bundles, an isolated worker registry and capability-aware native build queue.
+## ⚡ Quick start
 
-Native branded executable compilation runs in a separate builder project/container. This server repository provides its production boundary: dedicated authentication, atomic leasing, payload delivery, worker heartbeats, digest-verified uploads, cancellation, retry and artifact downloads without granting a builder access to the database or RustDesk server secrets.
-
-## Quick start
+1. Set the public hostname and start the all-in-one deployment:
 
 ```sh
-export RDS_PUBLIC_HOST=rustdesk.example.net
-docker compose -f deploy/compose.all-in-one.yaml up --build -d
+export RDS_PUBLIC_HOST=remote.example.net
+docker compose -f deploy/compose.all-in-one.yaml up -d
 ```
 
-On first start, read `/data/secrets/bootstrap-admin.txt` from the persistent volume. Remove that file after the first successful administrator login. The RustDesk server public key is stored at `/data/secrets/id_ed25519.pub` and is also printed once in HBBS logs.
-
-Open the administration console at `http://localhost:21114/` for local testing, or at the HTTPS API hostname in production.
-
-Configure the official RustDesk Client with:
-
-- ID server: `rustdesk.example.net:21116`
-- Relay server: `rustdesk.example.net:21117`
-- API server: `https://rustdesk.example.net` (reverse proxy to port `21114`)
-- Key: contents of `id_ed25519.pub`
-
-See [roadmap status](docs/roadmap-status.md), [2.0 upgrade guide](docs/upgrade-2.0.md), [architecture](docs/architecture.md), [protocol compatibility](docs/protocol-compatibility.md), [security](docs/security.md), [webhooks](docs/webhooks.md), [notifications](docs/notifications.md), [managed clients](docs/managed-clients.md), and [deployment](docs/deployment.md).
-
-Upgrading from the former ART image is covered by the [0.5.0 rebrand migration](docs/rebrand-0.5.0.md). Existing data, server keys and active sessions remain compatible.
-
-## Local checks
+2. Read the generated first-run credentials:
 
 ```sh
-gofmt -w $(find art-api -name '*.go')
+docker compose -f deploy/compose.all-in-one.yaml exec rustdesk-server-routeros \
+  cat /data/secrets/bootstrap-admin.txt
+```
+
+3. Open `http://localhost:21114/` for local testing. In production, expose port
+   `21114` only through a trusted HTTPS reverse proxy.
+
+Configure the client with:
+
+| Client field | Value |
+|---|---|
+| ID server | `remote.example.net:21116` |
+| Relay server | `remote.example.net:21117` |
+| API server | `https://remote.example.net` |
+| Key | contents of `/data/secrets/id_ed25519.pub` |
+
+> [!IMPORTANT]
+> Remove `bootstrap-admin.txt` after the first successful administrator login and
+> keep the complete `/data` directory persistent. It contains the database, identity keys, and secrets.
+
+## 🚀 Automated RouterOS deployment
+
+[`deploy/routeros-install.rsc`](deploy/routeros-install.rsc) prepares a complete
+RouterOS container deployment. Review the variables at the top, especially:
+
+```routeros
+:local publicHost "remote.example.net"
+:local dataRoot "Containers/remote-control-server"
+:local adminUsername "admin"
+:local adminPassword ""
+```
+
+An empty `adminPassword` is safe: the server generates a random bootstrap password
+inside the persistent data directory. Upload the script and run:
+
+```routeros
+/import file-name=routeros-install.rsc verbose=yes
+```
+
+After image extraction reaches `stopped`, start the container with the command printed
+by the script. Future image upgrades use [`deploy/routeros-update.rsc`](deploy/routeros-update.rsc).
+
+> [!IMPORTANT]
+> Check `dataRoot`, the `172.31.255.0/30` link network, the `WAN` interface list,
+> and firewall policy before importing the script.
+
+## 🔌 Network ports
+
+| Port | Protocol | Purpose |
+|---:|---|---|
+| `21114` | TCP | API and web console; reverse proxy recommended |
+| `21115` | TCP | NAT type test |
+| `21116` | TCP + UDP | Rendezvous / ID server |
+| `21117` | TCP | Relay server |
+| `21118` | TCP | WebSocket rendezvous |
+| `21119` | TCP | WebSocket relay |
+
+## 🧱 Architecture
+
+```text
+Official client
+    │ login / session token
+    ▼
+API Server ── users · sessions · devices · policies · audit
+    │ event sync + reconciliation
+    ▼
+HBBS ── authentication ── ACL ── Strategy ── target lookup
+    │
+    ├── direct P2P
+    └── HBBR relay
+```
+
+| Component | Runtime | Responsibility |
+|---|---|---|
+| `art-hbbs` | Rust | Rendezvous, protocol compatibility, auth/ACL/strategy gate |
+| `art-hbbr` | Rust | Relay transport and telemetry |
+| `art-core` | Rust | Protocol, claims, cache, sync, and shared security logic |
+| `art-api` | Go | API, persistence, authentication, policies, audit, and embedded web assets |
+| `art-web` | Vue 3 + TypeScript | Static administration console |
+
+## 💾 Persistence
+
+The all-in-one image requires one persistent mount:
+
+```text
+RouterOS / Docker volume  →  /data
+```
+
+SQLite is the default lightweight mode. PostgreSQL is available for larger deployments.
+The server generates shared JWT and identity secrets once and reuses them across restarts.
+
+## 🛡 Security
+
+- Keep `RDS_REQUIRE_LOGIN=true` for production.
+- Terminate public API traffic with HTTPS and configure `RDS_TRUSTED_PROXIES` explicitly.
+- Never publish `/data`, database files, private keys, bootstrap credentials, or backup secrets.
+- Use a dedicated database account for PostgreSQL deployments.
+- Restrict builder tokens to isolated worker machines; builders never receive server or DB secrets.
+- Review audit events after authentication, ACL, strategy, and server configuration changes.
+
+## 🧪 Local checks
+
+```sh
 (cd art-api && go vet ./... && go test ./... && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./...)
 
 cargo fmt --all -- --check
@@ -66,5 +155,39 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo build --workspace --release --target x86_64-unknown-linux-musl
 
-(cd art-web && pnpm run build)
+(cd art-web && pnpm exec vue-tsc --noEmit && pnpm build)
 ```
+
+## 📚 Documentation
+
+| Document | Purpose |
+|---|---|
+| [`docs/routeros-autodeploy.md`](docs/routeros-autodeploy.md) | RouterOS installation and updates |
+| [`docs/deployment.md`](docs/deployment.md) | Docker and production deployment |
+| [`docs/architecture.md`](docs/architecture.md) | Service boundaries and data flow |
+| [`docs/security.md`](docs/security.md) | Security model and operational guidance |
+| [`docs/protocol-compatibility.md`](docs/protocol-compatibility.md) | Official client compatibility |
+| [`docs/upgrade-2.0.md`](docs/upgrade-2.0.md) | Upgrade guide for version 2.0 |
+| [`docs/roadmap-status.md`](docs/roadmap-status.md) | Implemented roadmap status |
+
+## 💖 Support the project
+
+If Remote Control Server saves you time or is useful in your infrastructure, you can
+[support its development on Boosty](https://boosty.to/blackxdog/donate).
+
+[![Support on Boosty](https://img.shields.io/badge/Boosty-support-f15f2c?logo=boosty&logoColor=white)](https://boosty.to/blackxdog/donate)
+
+Your support helps test new RouterOS and client releases, maintain protocol
+compatibility, and develop the security and management features of future versions.
+
+## 📄 Project files
+
+| Path | Purpose |
+|---|---|
+| [`deploy/routeros-install.rsc`](deploy/routeros-install.rsc) | Automated RouterOS installation |
+| [`deploy/routeros-update.rsc`](deploy/routeros-update.rsc) | RouterOS container update |
+| [`deploy/compose.all-in-one.yaml`](deploy/compose.all-in-one.yaml) | Compact all-in-one deployment |
+| [`deploy/compose.yaml`](deploy/compose.yaml) | Split deployment |
+| [`docker/`](docker/) | Production multi-stage Dockerfiles |
+| [`docs/`](docs/) | Architecture, security, compatibility, and operations |
+| [`README_RU.md`](README_RU.md) | Russian documentation |
