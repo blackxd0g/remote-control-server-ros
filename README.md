@@ -6,11 +6,13 @@
 > Built for `linux/amd64`, MikroTik CHR, and RouterOS containers with authentication,
 > access control, relay, API, and a modern web console in one deployment.
 
-[![Docker Image](https://img.shields.io/badge/Docker%20Hub-blackxdog%2Fremote--control--server--ros-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/blackxdog/remote-control-server-ros)
-![Version](https://img.shields.io/badge/version-2.1.1-0A84FF)
-![Platform](https://img.shields.io/badge/platform-linux%2Famd64-success)
+[![GitHub release](https://img.shields.io/github/v/release/blackxd0g/remote-control-server-ros?label=release)](https://github.com/blackxd0g/remote-control-server-ros/releases)
+[![Docker Pulls](https://img.shields.io/docker/pulls/blackxdog/remote-control-server-ros?logo=docker&label=docker%20pulls)](https://hub.docker.com/r/blackxdog/remote-control-server-ros)
+[![Docker Image Size](https://img.shields.io/docker/image-size/blackxdog/remote-control-server-ros/latest?logo=docker&label=image%20size)](https://hub.docker.com/r/blackxdog/remote-control-server-ros)
+![Platform](https://img.shields.io/badge/arch-linux%2Famd64-success)
 ![RouterOS](https://img.shields.io/badge/RouterOS-7.22%2B-blue)
 ![Protocol](https://img.shields.io/badge/protocol-RustDesk%20compatible-7B61FF)
+[![Boosty](https://img.shields.io/badge/Boosty-support-f15f2c?logo=boosty&logoColor=white)](https://boosty.to/blackxdog/donate)
 
 ## ✨ Features
 
@@ -67,8 +69,36 @@ Configure the client with:
 
 ## 🚀 Automated RouterOS deployment
 
-[`deploy/routeros-install.rsc`](deploy/routeros-install.rsc) prepares a complete
-RouterOS container deployment. Review the variables at the top, especially:
+[![Installer](https://img.shields.io/badge/RouterOS-download%20installer-0A84FF?logo=mikrotik&logoColor=white)](deploy/routeros-install.rsc)
+[![Updater](https://img.shields.io/badge/RouterOS-download%20updater-475569?logo=mikrotik&logoColor=white)](deploy/routeros-update.rsc)
+[![Guide](https://img.shields.io/badge/docs-deployment%20guide-7B61FF)](docs/routeros-autodeploy.md)
+
+The installer prepares the VETH network, persistent `/data` mount, environment,
+firewall rules, and the `blackxdog/remote-control-server-ros:latest` container.
+
+### 1. Enable containers
+
+```routeros
+/system/device-mode/print
+/system/device-mode/update mode=advanced container=yes
+```
+
+Confirm the change using the physical button or a power cycle within the RouterOS
+time window. The `container` package and `device-mode container=yes` are required.
+
+### 2. Download the installer to RouterOS
+
+Paste this snippet into the MikroTik terminal:
+
+```routeros
+:local url "https://raw.githubusercontent.com/blackxd0g/remote-control-server-ros/main/deploy/routeros-install.rsc"
+:local dst "routeros-install.rsc"
+/tool fetch url=$url mode=https dst-path=$dst
+:put ("Downloaded " . $dst . ". Review its configuration block before import.")
+```
+
+Open `routeros-install.rsc` in **Files**, then review the configuration block at
+the top, especially:
 
 ```routeros
 :local publicHost "remote.example.net"
@@ -77,19 +107,36 @@ RouterOS container deployment. Review the variables at the top, especially:
 :local adminPassword ""
 ```
 
-An empty `adminPassword` is safe: the server generates a random bootstrap password
-inside the persistent data directory. Upload the script and run:
+An empty `adminPassword` is recommended: the server creates a random one-time
+bootstrap password inside the persistent data directory.
+
+### 3. Install and start
 
 ```routeros
 /import file-name=routeros-install.rsc verbose=yes
 ```
 
-After image extraction reaches `stopped`, start the container with the command printed
-by the script. Future image upgrades use [`deploy/routeros-update.rsc`](deploy/routeros-update.rsc).
+After image extraction reaches `stopped`, run the start command printed by the script.
+
+### 4. Update later
+
+Download [`deploy/routeros-update.rsc`](deploy/routeros-update.rsc) and import it.
+It uses RouterOS container update, preserves the `/data` mount, waits for extraction,
+and starts the updated container.
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `image` | `blackxdog/remote-control-server-ros:latest` | Published container image |
+| `containerName` | `remote_control_server` | RouterOS container name |
+| `dataRoot` | `Containers/remote-control-server` | Persistent storage and extraction root |
+| `publicHost` | required | Public DNS name used by clients |
+| `containerAddress` | `172.31.255.2/30` | Isolated VETH address |
+| `wanList` | `WAN` | Interface list used by published protocol ports |
 
 > [!IMPORTANT]
 > Check `dataRoot`, the `172.31.255.0/30` link network, the `WAN` interface list,
-> and firewall policy before importing the script.
+> and firewall policy before importing the script. Review fetched scripts before
+> execution; for production, prefer a versioned release URL instead of `main`.
 
 ## 🔌 Network ports
 
