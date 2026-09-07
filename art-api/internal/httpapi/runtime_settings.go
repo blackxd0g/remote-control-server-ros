@@ -33,7 +33,7 @@ func (s *Server) runtimeConfiguration() runtimeconfig.Values {
 	}
 	accessTTL, _ := time.ParseDuration(envValue("ART_ACCESS_TOKEN_TTL", "168h"))
 	sessionTTL, _ := time.ParseDuration(envValue("ART_SESSION_TTL", "168h"))
-	return runtimeconfig.Values{RequireLogin: envBool("ART_REQUIRE_LOGIN", true), RequireDeviceDeployment: envBool("ART_REQUIRE_DEVICE_DEPLOYMENT", false), RegistrationEnabled: s.registrationEnabled, RegistrationAutoApprove: envBool("ART_REGISTRATION_AUTO_APPROVE", false), AccessTokenTTL: accessTTL, SessionTTL: sessionTTL, MFAMode: string(s.mfa.Mode()), PasswordMinimumLength: 12, PasswordRequireUpper: true, PasswordRequireLower: true, PasswordRequireNumber: true, PasswordRequireSpecial: true}
+	return runtimeconfig.Values{RequireLogin: envBool("ART_REQUIRE_LOGIN", true), RequireDeviceDeployment: envBool("ART_REQUIRE_DEVICE_DEPLOYMENT", false), RegistrationEnabled: s.registrationEnabled, RegistrationAutoApprove: envBool("ART_REGISTRATION_AUTO_APPROVE", false), AccessTokenTTL: accessTTL, SessionTTL: sessionTTL, MFAMode: string(s.mfa.Mode()), PasswordMinimumLength: 8}
 }
 
 func (s *Server) registrationIsEnabled() bool { return s.runtimeConfiguration().RegistrationEnabled }

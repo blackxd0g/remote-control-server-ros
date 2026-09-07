@@ -93,7 +93,7 @@ export const api = {
     }),
   }),
   loginOptions: () => request<{name:string}[]>('/api/login-options'),
-  registrationOptions: () => request<{enabled:boolean;approval_required:boolean}>('/api/registration-options'),
+  registrationOptions: () => request<{enabled:boolean;approval_required:boolean;password_policy?:{minimum_length:number;require_upper:boolean;require_lower:boolean;require_number:boolean;require_special:boolean}}>('/api/registration-options'),
   register: (input:{username:string;email:string;display_name:string;password:string}) => request<{status:'pending'|'approved';message:string}>('/api/register',{method:'POST',body:JSON.stringify(input)}),
   beginOIDC: async (provider:string) => { const id='web-console',uuid=webDeviceID();const result=await request<{code:string;url:string}>('/api/oidc/auth',{method:'POST',body:JSON.stringify({op:provider,id,uuid,deviceInfo:{os:navigator.platform,type:'web',name:navigator.userAgent}})});return {...result,id,uuid} },
   pollOIDC: (code:string,id:string,uuid:string) => request<LoginResponse|{error:string}>(`/api/oidc/auth-query?code=${encodeURIComponent(code)}&id=${encodeURIComponent(id)}&uuid=${encodeURIComponent(uuid)}`),

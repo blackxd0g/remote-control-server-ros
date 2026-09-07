@@ -9,3 +9,5 @@ art-web/dist/
 .env
 .docker-auth/
 .pnpm-store/
+.test-cache/
+.npm-cache/

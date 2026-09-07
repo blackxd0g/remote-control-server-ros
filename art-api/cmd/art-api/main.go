@@ -99,7 +99,7 @@ func run() error {
 		return err
 	}
 	hub := events.NewHub()
-	runtimeConfiguration, err := runtimeconfig.New(ctx, repository, runtimeconfig.Values{RequireLogin: cfg.RequireLogin, RequireDeviceDeployment: cfg.RequireDeviceDeployment, RegistrationEnabled: cfg.RegistrationEnabled, RegistrationAutoApprove: cfg.RegistrationAutoApprove, AccessTokenTTL: cfg.AccessTokenTTL, SessionTTL: cfg.SessionTTL, MFAMode: cfg.MFAMode, PasswordMinimumLength: 12, PasswordRequireUpper: true, PasswordRequireLower: true, PasswordRequireNumber: true, PasswordRequireSpecial: true})
+	runtimeConfiguration, err := runtimeconfig.New(ctx, repository, runtimeconfig.Values{RequireLogin: cfg.RequireLogin, RequireDeviceDeployment: cfg.RequireDeviceDeployment, RegistrationEnabled: cfg.RegistrationEnabled, RegistrationAutoApprove: cfg.RegistrationAutoApprove, AccessTokenTTL: cfg.AccessTokenTTL, SessionTTL: cfg.SessionTTL, MFAMode: cfg.MFAMode, PasswordMinimumLength: 8})
 	if err != nil {
 		return err
 	}

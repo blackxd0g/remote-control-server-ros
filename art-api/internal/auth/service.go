@@ -63,11 +63,13 @@ func (s *Service) SetPasswordPolicy(value PasswordPolicy) {
 	s.passwordPolicy = value
 	s.mutex.Unlock()
 }
-func (s *Service) validatePassword(value string) error {
+func (s *Service) PasswordPolicy() PasswordPolicy {
 	s.mutex.RLock()
-	policy := s.passwordPolicy
-	s.mutex.RUnlock()
-	return policy.Validate(value)
+	defer s.mutex.RUnlock()
+	return s.passwordPolicy
+}
+func (s *Service) validatePassword(value string) error {
+	return s.PasswordPolicy().Validate(value)
 }
 
 func (s *Service) SetTTLs(accessTokenTTL, sessionTTL time.Duration) {

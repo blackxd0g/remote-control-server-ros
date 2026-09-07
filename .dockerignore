@@ -8,5 +8,7 @@ target
 **/target
 node_modules
 **/node_modules
+**/.test-cache
+**/.npm-cache
 *.zip
 *.exe

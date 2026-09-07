@@ -1440,7 +1440,14 @@ type updateUserRequest struct {
 
 func (s *Server) registrationOptions(response http.ResponseWriter, _ *http.Request) {
 	configured := s.runtimeConfiguration()
-	writeJSON(response, http.StatusOK, map[string]any{"enabled": configured.RegistrationEnabled, "approval_required": !configured.RegistrationAutoApprove})
+	policy := s.auth.PasswordPolicy()
+	writeJSON(response, http.StatusOK, map[string]any{
+		"enabled": configured.RegistrationEnabled, "approval_required": !configured.RegistrationAutoApprove,
+		"password_policy": map[string]any{
+			"minimum_length": max(1, policy.MinimumLength), "require_upper": policy.RequireUpper,
+			"require_lower": policy.RequireLower, "require_number": policy.RequireNumber, "require_special": policy.RequireSpecial,
+		},
+	})
 }
 
 func (s *Server) register(response http.ResponseWriter, request *http.Request) {
@@ -1467,6 +1474,10 @@ func (s *Server) register(response http.ResponseWriter, request *http.Request) {
 	}
 	autoApprove := s.runtimeConfiguration().RegistrationAutoApprove
 	user, err := s.auth.Register(request.Context(), auth.CreateUserInput{Username: input.Username, Email: input.Email, Password: input.Password, DisplayName: input.DisplayName}, autoApprove)
+	if errors.Is(err, auth.ErrPasswordPolicy) {
+		writeError(response, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err != nil {
 		writeError(response, http.StatusConflict, "account could not be registered")
 		return
@@ -1502,6 +1513,10 @@ func (s *Server) createUser(response http.ResponseWriter, request *http.Request)
 	}
 	user, err := s.auth.CreateLocalUser(request.Context(), auth.CreateUserInput{Username: input.Username,
 		Email: input.Email, Password: input.Password, DisplayName: input.DisplayName, Role: input.Role, Enabled: enabled})
+	if errors.Is(err, auth.ErrPasswordPolicy) {
+		writeError(response, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err != nil {
 		writeError(response, http.StatusConflict, "user could not be created")
 		return

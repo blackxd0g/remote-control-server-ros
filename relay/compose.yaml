@@ -1,0 +1,29 @@
+services:
+  relay:
+    image: remote-control-relay:2.2.1
+    build: .
+    restart: unless-stopped
+    read_only: true
+    user: "65532:65532"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    environment:
+      RUST_LOG: info
+      RDS_HBBR_ID: ${RELAY_ID:?Set a unique RELAY_ID}
+      RDS_HBBR_NAME: ${RELAY_NAME:-Standalone relay}
+      RDS_HBBR_REGION: ${RELAY_REGION:-}
+      RDS_HBBR_PUBLIC_ADDRESS: ${RELAY_PUBLIC_ADDRESS:?Set advertised hostname:21117}
+      RDS_API_INTERNAL_URL: ${API_INTERNAL_URL:?Set the central API URL over a private network}
+      RDS_HBBR_TELEMETRY_INTERVAL: "5"
+    volumes:
+      - type: bind
+        source: ${INTERNAL_SECRET_FILE:?Set path to the central internal.secret file}
+        target: /run/secrets/internal.secret
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "${RELAY_PUBLIC_BIND_IP:-0.0.0.0}:21117:21117/tcp"
+      - "${RELAY_PUBLIC_BIND_IP:-0.0.0.0}:21119:21119/tcp"
+      - "${RELAY_PRIVATE_BIND_IP:?Set the private/VPN interface IP}:21119:21119/udp"

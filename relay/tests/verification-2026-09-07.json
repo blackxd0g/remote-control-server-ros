@@ -1,0 +1,40 @@
+[
+  {
+    "architecture": "amd64",
+    "memory": "1.535MiB / 15.57GiB",
+    "protocol": {
+      "passed": true,
+      "results": [
+        "TCP and WebSocket deny without permit",
+        "invalid control token rejected",
+        "expired permit rejected",
+        "tcp/tcp bidirectional byte equality, third peer denied, terminate acknowledged and both peers closed",
+        "ws/ws bidirectional byte equality, third peer denied, terminate acknowledged and both peers closed",
+        "tcp/ws bidirectional byte equality, third peer denied, terminate acknowledged and both peers closed",
+        "relay telemetry registered in isolated central API"
+      ]
+    },
+    "elf_machine": 62,
+    "telemetry_registered": true,
+    "binary_bytes": 2309440
+  },
+  {
+    "architecture": "arm64",
+    "memory": "16.93MiB / 15.57GiB",
+    "protocol": {
+      "passed": true,
+      "results": [
+        "TCP and WebSocket deny without permit",
+        "invalid control token rejected",
+        "expired permit rejected",
+        "tcp/tcp bidirectional byte equality, third peer denied, terminate acknowledged and both peers closed",
+        "ws/ws bidirectional byte equality, third peer denied, terminate acknowledged and both peers closed",
+        "tcp/ws bidirectional byte equality, third peer denied, terminate acknowledged and both peers closed",
+        "relay telemetry registered in isolated central API"
+      ]
+    },
+    "elf_machine": 183,
+    "telemetry_registered": true,
+    "binary_bytes": 2038560
+  }
+]

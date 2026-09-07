@@ -2,6 +2,20 @@ package auth
 
 import "testing"
 
+func TestPasswordPolicyMinimumEightOnly(t *testing.T) {
+	policy := PasswordPolicy{MinimumLength: 8}
+	for _, password := range []string{"abcdefgh", "12345678", "ABCDEFGH", "абвгдежз"} {
+		if err := policy.Validate(password); err != nil {
+			t.Fatalf("eight-character password rejected: %v", err)
+		}
+	}
+	for _, password := range []string{"abcdefg", "абвгдеж"} {
+		if policy.Validate(password) == nil {
+			t.Fatal("seven-character password accepted")
+		}
+	}
+}
+
 func TestPasswordPolicy(t *testing.T) {
 	policy := PasswordPolicy{MinimumLength: 12, RequireUpper: true, RequireLower: true, RequireNumber: true, RequireSpecial: true}
 	if policy.Validate("Strong-Password7") != nil {

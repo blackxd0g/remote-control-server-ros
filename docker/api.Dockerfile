@@ -8,8 +8,8 @@ COPY art-web/ ./
 RUN pnpm build
 
 FROM --platform=$BUILDPLATFORM golang:1.26.7-alpine3.24 AS build
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+ARG TARGETOS
+ARG TARGETARCH
 ARG TARGETVARIANT
 WORKDIR /src
 COPY art-api/go.mod art-api/go.sum ./

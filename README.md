@@ -249,3 +249,7 @@ compatibility, and develop the security and management features of future versio
 | [`docker/`](docker/) | Production multi-stage Dockerfiles |
 | [`docs/`](docs/) | Architecture, security, compatibility, and operations |
 | [`README_RU.md`](README_RU.md) | Russian documentation |
+
+## Standalone relay and Pro parity
+
+See [the minimal relay container](relay/README.md), [the Pro parity audit](docs/pro-parity-audit-2026-09-07.md), and [the roadmap](docs/roadmap-status.md).

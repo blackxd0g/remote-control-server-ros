@@ -2,6 +2,8 @@ package auth
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -20,8 +22,12 @@ func (value PasswordPolicy) Validate(password string) error {
 	if value.MinimumLength < 1 {
 		value.MinimumLength = 1
 	}
-	if !utf8.ValidString(password) || utf8.RuneCountInString(password) < value.MinimumLength {
-		return ErrPasswordPolicy
+	if !utf8.ValidString(password) {
+		return fmt.Errorf("%w: invalid UTF-8", ErrPasswordPolicy)
+	}
+	var missing []string
+	if utf8.RuneCountInString(password) < value.MinimumLength {
+		missing = append(missing, fmt.Sprintf("at least %d characters", value.MinimumLength))
 	}
 	var upper, lower, number, special bool
 	for _, character := range password {
@@ -30,8 +36,21 @@ func (value PasswordPolicy) Validate(password string) error {
 		number = number || unicode.IsNumber(character)
 		special = special || (!unicode.IsLetter(character) && !unicode.IsNumber(character) && !unicode.IsSpace(character))
 	}
-	if value.RequireUpper && !upper || value.RequireLower && !lower || value.RequireNumber && !number || value.RequireSpecial && !special {
-		return ErrPasswordPolicy
+	for _, rule := range []struct {
+		required, present bool
+		description       string
+	}{
+		{value.RequireUpper, upper, "an uppercase letter"},
+		{value.RequireLower, lower, "a lowercase letter"},
+		{value.RequireNumber, number, "a number"},
+		{value.RequireSpecial, special, "a special character"},
+	} {
+		if rule.required && !rule.present {
+			missing = append(missing, rule.description)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("%w: requires %s", ErrPasswordPolicy, strings.Join(missing, ", "))
 	}
 	return nil
 }

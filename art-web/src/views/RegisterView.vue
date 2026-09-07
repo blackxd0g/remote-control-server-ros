@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowRight, Globe2, LockKeyhole, MoonStar, ShieldCheck, UserPlus, UserRound } from 'lucide-vue-next'
 import AuthStarfield from '../components/AuthStarfield.vue'
 import BrandMark from '../components/BrandMark.vue'
-import { api } from '../api'
+import { APIError, api } from '../api'
 import { preferences, tr, type Locale, type Theme } from '../preferences'
 import { appVersion } from '../version'
 
@@ -13,8 +13,21 @@ const busy = ref(false)
 const error = ref('')
 const success = ref('')
 const approvalRequired = ref(true)
+const options = ref<Awaited<ReturnType<typeof api.registrationOptions>>>()
+const optionsLoading = ref(true)
+const passwordRequirements = computed(() => {
+  const policy = options.value?.password_policy
+  if (!policy) return ''
+  const requirements = [tr(`не менее ${policy.minimum_length} символов`, `at least ${policy.minimum_length} characters`)]
+  if (policy.require_upper) requirements.push(tr('заглавная буква', 'an uppercase letter'))
+  if (policy.require_lower) requirements.push(tr('строчная буква', 'a lowercase letter'))
+  if (policy.require_number) requirements.push(tr('цифра', 'a number'))
+  if (policy.require_special) requirements.push(tr('спецсимвол', 'a special character'))
+  return requirements.join(', ')
+})
 
 async function submit() {
+  if (busy.value || success.value || !options.value?.enabled) return
   error.value = ''
   success.value = ''
   if (form.password !== form.confirmation) {
@@ -32,9 +45,18 @@ async function submit() {
     success.value = result.message
     Object.assign(form, { username: '', display_name: '', email: '', password: '', confirmation: '' })
   } catch (reason) {
-    error.value = reason instanceof Error
+    if (reason instanceof APIError && reason.message.startsWith('password does not satisfy security policy')) {
+      error.value = tr('Пароль не соответствует требованиям сервера. ', 'The password does not meet server requirements. ') + passwordRequirements.value
+    } else if (reason instanceof APIError && reason.status === 429) {
+      error.value = tr('Слишком много попыток регистрации. Повторите позже.', 'Too many registration attempts. Try again later.')
+    } else if (reason instanceof APIError && reason.message === 'registration is disabled') {
+      if (options.value) options.value.enabled = false
+      error.value = tr('Регистрация отключена администратором.', 'Registration is disabled by the administrator.')
+    } else {
+      error.value = reason instanceof Error
       ? reason.message
       : tr('Не удалось зарегистрировать учётную запись', 'Could not register the account')
+    }
   } finally {
     busy.value = false
   }
@@ -42,9 +64,12 @@ async function submit() {
 
 onMounted(async () => {
   try {
-    approvalRequired.value = (await api.registrationOptions()).approval_required
+    options.value = await api.registrationOptions()
+    approvalRequired.value = options.value.approval_required
   } catch {
-    approvalRequired.value = true
+    error.value = tr('Не удалось загрузить условия регистрации. Обновите страницу.', 'Could not load registration options. Reload the page.')
+  } finally {
+    optionsLoading.value = false
   }
 })
 </script>
@@ -104,7 +129,11 @@ onMounted(async () => {
             : tr('Учётная запись будет авторизована автоматически.', 'The account will be approved automatically.') }}
         </p>
 
-        <div class="register-form-grid">
+        <p v-if="optionsLoading" class="form-intro" role="status">{{ tr('Загрузка условий регистрации…', 'Loading registration options…') }}</p>
+        <p v-else-if="options && !options.enabled" class="form-error" role="status">{{ tr('Регистрация отключена администратором.', 'Registration is disabled by the administrator.') }}</p>
+        <p class="form-intro">{{ tr('Логин: латинские буквы, цифры, точка, дефис и знак подчёркивания.', 'Username: Latin letters, numbers, dots, hyphens and underscores.') }}</p>
+        <p v-if="passwordRequirements" id="registration-password-policy" class="form-intro">{{ tr('Требования к паролю: ', 'Password requirements: ') }}{{ passwordRequirements }}.</p>
+        <div class="register-form-grid" :aria-busy="optionsLoading || busy">
           <label><span>{{ tr('Имя пользователя', 'Username') }}</span><div class="input-wrap"><UserRound :size="18" /><input v-model="form.username" required minlength="2" maxlength="64" autocomplete="username" /></div></label>
           <label><span>{{ tr('Отображаемое имя', 'Display name') }}</span><div class="input-wrap"><UserRound :size="18" /><input v-model="form.display_name" maxlength="256" autocomplete="name" /></div></label>
           <label class="register-wide"><span>Email</span><div class="input-wrap"><Globe2 :size="18" /><input v-model="form.email" type="email" autocomplete="email" /></div></label>
@@ -114,7 +143,7 @@ onMounted(async () => {
 
         <p v-if="error" class="form-error" role="alert">{{ error }}</p>
         <p v-if="success" class="alert-success" role="status">{{ success }}</p>
-        <button class="primary-button" :disabled="busy || !!success">
+        <button class="primary-button" :disabled="optionsLoading || !options?.enabled || busy || !!success">
           <span>{{ busy ? tr('Регистрация…', 'Registering…') : tr('Зарегистрироваться', 'Register') }}</span>
           <ArrowRight :size="18" />
         </button>

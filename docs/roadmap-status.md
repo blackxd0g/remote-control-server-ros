@@ -1,6 +1,51 @@
 # Roadmap status
 
-This document records the implemented production boundary. A capability is listed as complete only when it has a persistent model, server-side enforcement where applicable, an API surface, and automated coverage for its security-critical path.
+## Правила ведения дорожной карты
+
+По требованию пользователя от 2026-09-07 все наши планы по серверному проекту обязательно фиксируются в этом документе до начала реализации.
+
+- Для новых задач указывать ожидаемый результат, статус и критерии готовности.
+- Предложения отделять от согласованных планов; приоритет и целевой релиз указывать, когда они определены.
+- При начале, завершении, переносе или изменении объёма работ обновлять соответствующую запись.
+- Завершение фиксировать только после необходимых проверок; историю реализованных этапов сохранять.
+
+## Публикация на GitHub — в работе (2026-09-07)
+
+- По запросу пользователя загрузить актуальные исходники, аудит Pro, дорожную карту и отдельный relay в существующий `blackxd0g/remote-control-server-ros`.
+- Relay разместить отдельным каталогом `relay/`; бинарные tar-артефакты поставить через отдельный GitHub Release, без изменения Docker Hub latest.
+- Проверить diff, исключение секретов/локальных данных и корректность ссылок. Завершение: commit доступен на GitHub, файлы релиза совпадают по SHA-256.
+
+Historical complete labels below describe the stated implementation milestone, not full RustDesk Pro parity. Current functional gaps and acceptance gates are recorded in the 2026-09-07 audit and the PAR/REL plan below. Client-visible parity requires a successful real-client scenario in addition to models, APIs and automated coverage.
+
+## Сверка с RustDesk Server Pro и отдельный relay — аудит и локальная поставка выполнены (2026-09-07)
+
+- Цель: функциональная полнота аналога RustDesk Server Pro, подтверждённая реальными сценариями официального клиента, а не только наличием моделей и API.
+- Провести аудит кода и тестов версии 2.2.1, сверить с текущей официальной документацией Pro; составить матрицу «реализовано / частично / отсутствует / не проверено» с доказательствами и приоритетами.
+- Пересмотреть старые отметки complete там, где они описывают лишь серверную основу; записать оставшиеся этапы и критерии приёмки.
+- Подготовить отдельный минимальный relay-контейнер: один HBBR, без API, Web, HBBS и БД, amd64/arm64, совместимость с авторизацией основного сервера, документация Compose/RouterOS, проверка передачи данных и отказа без разрешения.
+- Публикацию и установку нового relay на конкретном узле учитывать отдельно от локальной сборки и тестирования.
+- Итог: [аудит Pro parity](pro-parity-audit-2026-09-07.md) составлен по исходникам и официальной документации. Полнота Pro пока не достигнута; исторические complete уточнены для Strategies, HA, Stable и исправлена устаревшая граница termination.
+- REL-01 выполнен: [отдельный проект relay](../relay/README.md), scratch-образ с единственным HBBR 2.2.1, amd64/arm64, non-root/read-only, Compose, RouterOS-шаблон и tar-артефакты. Проверены реальные TCP/WS/mixed данные, отказ без permit/с неверным токеном/по expiry, лимит двух peers, terminate/ack и закрытие обоих концов, регистрация телеметрии в изолированном API. Это протокольный smoke, не полная приёмка официального клиента. ARM64 проверен под эмуляцией.
+- Публикация отдельного relay в registry и установка на новый production-узел не выполнены: целевой узел ещё не определён. Существующий production в рамках этой задачи не изменялся.
+
+## Остаток до функциональной полноты Pro — предложенный порядок
+
+Цель согласована пользователем; ниже предложены этапы по результатам аудита. Номера релизов, сроки и полная матрица целевых ОС пока не утверждены. Реализация этих этапов не включена в выполненный аудит.
+
+| ID | Приоритет / статус | Результат и критерии готовности |
+|---|---|---|
+| PAR-01 | P0, предложен первым | Версии официальных клиентов и стенд; сквозные login/approval/2FA/ACL/AB/relay/revoke сценарии с отчётами по ОС, включая отрицательные проверки |
+| PAR-02 | P0, предложен | Control Roles и scoped Admin Roles; спецификация Strategies, общие fixtures Go/Rust, безопасная миграция текущих приоритетов; права внутри сессии реально соблюдаются клиентом |
+| REL-02 | P0 до менее доверенной сети, предложен | Отдельные отзываемые relay credentials, private control_address, permit ack/replay protection, handshake timeout и лимиты; rotation/restart/reconnect проверены |
+| PAR-03 | P1, предложен | SMTP TLS и очередь доставки, приглашение/email verification/reset password; одноразовые истекающие токены и отрицательные проверки |
+| PAR-04 | P1, предложен | Изолированные native workers, подписанные установщики и metadata; build/install/connect/update/rollback на каждой заявленной платформе |
+| PAR-05 | P1, предложен | Полноценный hosted web client через HTTPS/WSS: вход, адресная книга, экран/ввод, файлы, отзыв доступа |
+| REL-03 | P1, предложен | Географический выбор relay относительно клиента, fallback/health/load и управляемое выключение узла; проверка с разных регионов |
+| PAR-06 | P1, предложен | Scoped audit/API/export, AB sync/offline/conflicts, pagination, retention и контроль доставки; измеренный рост БД и нагрузочный отчёт |
+| PAR-07 | P2, предложен | Live OIDC/AD проверки, Postgres integration, межузловой outbox/events, API/HBBS failover и partition, restore drill с RPO/RTO; декомпозиция затрагиваемых крупных модулей |
+| PAR-08 | Финальная приёмка, ожидает предыдущие этапы | Каждый пункт матрицы Pro имеет воспроизводимый passed-сценарий или явно согласованное исключение; upgrade/rollback проверены |
+
+REL-DEPLOY: отдельная установка relay ожидает выбора узла и адресации. Перед установкой подготовить конкретный конфиг/VPN/firewall/secret mount, затем проверить выдачу permit от настоящего HBBS, выбор relay официальным клиентом и завершение сеанса из консоли. RouterOS-шаблон не считается production-проверкой.
 
 ## 0.1 Authentication Core — complete
 
@@ -14,6 +59,8 @@ This document records the implemented production boundary. A capability is liste
 - Server-side ACL permissions are resolved and enforced by HBBS before a connection is established.
 
 ## 0.3 Strategies — complete
+
+Аудит 2026-09-07: завершена собственная серверная модель; Pro parity частична. Алгоритм объединения/приоритетов отличается от Pro, требуется PAR-02 и сквозная проверка клиента.
 
 - Global, user, user-group, device, and device-group assignments with deterministic priority and specificity inheritance.
 - Security-sensitive settings are enforced by HBBS; compatible client settings are delivered through the official heartbeat response.
@@ -83,7 +130,7 @@ This document records the implemented production boundary. A capability is liste
 - Connection audit now resolves the authenticated operator and server session from the controller device, so the console can show who connected to each RustDesk ID.
 - The administration console provides an auto-refreshing connection center with controller device, target ID, connection type, IP address, start time, and duration.
 - Administrators can contain an attributed live connection in one action: the operator session is revoked through the normal event-driven auth path, reconnects are blocked immediately, the live projection is closed, and the action is written to the immutable audit trail.
-- The API response and console explicitly report that transport interruption is not guaranteed. Exact termination of an established relay stream requires an HBBR relay UUID correlation channel; direct P2P streams cannot be reliably torn down after rendezvous by server design.
+- Historical 1.2 boundary: transport interruption was not guaranteed. Superseded by 2.1.0: HBBR UUID correlation, terminate/ack and cancellation now close established relay pairs. Direct P2P streams still cannot be reliably torn down after rendezvous by server design.
 
 ## 1.3 Security & Compliance — complete
 
@@ -104,6 +151,8 @@ This document records the implemented production boundary. A capability is liste
 - Outbound actions reuse the signed webhook delivery pipeline with retry and SSRF protection; no shell-command action is exposed and generated events cannot recursively invoke automation.
 
 ## 1.6 High Availability & Cluster Readiness — complete
+
+Аудит 2026-09-07: complete относится к node inventory и leader leases. Полноценная HA не принята: in-memory event hub не обеспечивает межузловую доставку, failover требует PAR-07.
 
 - API instances have a persistent node identity, database-backed heartbeat inventory, and an administrator-visible cluster state endpoint.
 - Atomic renewable leases work on SQLite and PostgreSQL semantics and prevent an active lease from being stolen before expiry.
@@ -131,10 +180,48 @@ This document records the implemented production boundary. A capability is liste
 
 ## 2.0 Stable — complete
 
+Аудит 2026-09-07: исторический stable-релиз серверной основы, не заявление о полнофункциональном RustDesk Pro. Native generator и web client остаются незавершёнными пользовательскими сценариями.
+
 - Authentication, pre-connection enforcement, ACL, Strategies, enterprise authentication, audit, automation, cluster coordination, backup/restore, fleet operations, managed-client control plane, and supportability have a persistent production implementation.
 - The external native Builder worker remains an optional separate component and is not bundled into the lightweight RouterOS image.
 
+## Исправление регистрации новых пользователей — выполнено в 2.2.1 (2026-09-07)
+
+- План: проверить публичную форму, API регистрации, сохранение пользователя и процесс одобрения; воспроизвести и исправить сбой.
+- Ожидаемый результат: при включённой регистрации корректные данные создают пользователя; при обязательном одобрении доступ разрешается только после решения администратора, а ошибки понятно отображаются в форме.
+- Критерии готовности: регрессионные проверки найденного дефекта, проверка запрета отключённой регистрации и обхода одобрения, необходимые проверки Go и сборка Vue/TypeScript.
+- Публикация и установка исправления: статус уточняется после проверки реализации.
+- Диагностика: сервер возвращает `enabled=true`, `approval_required=true`; локальные `TestRegistration*` проходят. Конкретный пользовательский сбой пока не воспроизведён, запрошено описание ошибки. В форме обнаружены отдельные недостатки: игнорирование `enabled` и отсутствие подсказок по требованиям к данным.
+- Сбой воспроизведён через браузер на версии 2.1.1: пароль `Test12345` вызывает непрозрачную ошибку `account could not be registered`; подходящий пароль с тем же логином создаёт заявку. План исправления: публично отдавать действующую политику пароля, показывать её до отправки формы, локализовать ошибку и учитывать доступность регистрации. В локальном API уже есть обработка ошибки политики с HTTP 400; требуется включить её в проверяемое исправление.
+- Реализовано локально: публичная политика берётся из auth-service; форма показывает требования, русское сообщение об отказе, состояния загрузки и отключения регистрации. Проверены `TestRegistration*`, `TestUserCreationPasswordPolicyErrors` (включая изменение действующей политики), `go vet ./...`, Vue/TypeScript и Vite build.
+- На сервере созданы только тестовые заявки `registration-test-20260907090501` и `registration-ui-test-0907`, обе `pending`, без одобрения. Полный Go-прогон и локальный UI smoke пока не завершены: процессы зависали без вывода. Установка исправления на MikroTik не выполнена; задача остаётся в работе до завершения проверок и поставки.
+- Статическая сборка Go API для `linux/amd64` с `CGO_ENABLED=0` также прошла.
+- Итог: проверки завершены в Docker, форма проверена в браузере (ошибка короткого пароля и успешная заявка). Исправление опубликовано в 2.2.1 и установлено на MikroTik; прежние ограничения локальных проверок сняты.
+
 ## Release gate
+
+### Фикс-релиз 2.2.1 и обновление MikroTik — выполнено (2026-09-07)
+
+- Включить исправление регистрации и парольную политику по умолчанию от 8 символов без требований к составу.
+- Выполнить проверки Vue, Go и Rust, собрать и проверить all-in-one образ; опубликовать версионный тег и обновить `latest` с сохранением поддерживаемых архитектур.
+- Сделать repull контейнера `rustdesk_server_routeros` на MikroTik 10.0.47.1; подтвердить версию, здоровье компонентов, сохранность данных и политику регистрации.
+- При сборке обнаружено принудительное `TARGETARCH=amd64` в Go-стадии; убрать переопределение автоматической архитектуры BuildKit в all-in-one и API Dockerfile. Проверить ELF-архитектуру всех трёх бинарников обоих образов перед публикацией.
+- Подготовлены VERSION 2.2.1 и release notes; Vue/TypeScript/Vite, `go vet ./...` и целевые интеграционные тесты регистрации прошли.
+- Блокер: Docker Desktop не запускается из-за недоступного `AppData/Local/Docker/run/sailor-ingest.sock`. Переименование и удаление отдельного сокета не удалось. Автоматическая проверка отклонила переименование всей временной папки `run` из-за риска для активных служб/сокетов; требуется явное разрешение пользователя на восстановление Docker. Публикация и repull не выполнены.
+- Блокер снят: пользователь запустил Docker Desktop. Linux Go tests/vet и Vue production build прошли; неизменённая Rust-стадия fmt/clippy/tests подтверждена BuildKit-кешем. amd64 контейнер прошёл запуск, проверку трёх ELF-бинарников, версии и регистрации с границей 7/8 символов.
+- Перед обновлением создана серверная копия `rustdesk-backup-20260907-062625.551201917.db`, SQLite `quick_check=ok`; исходное состояние: 6 пользователей, 129 устройств, API/HBBS/HBBR/DB online.
+- Итог: multi-architecture сборка завершена; ARM64 и amd64 прошли проверку ELF всех трёх бинарников, health, версии, отклонения 7-символьного пароля и регистрации 8-символьного со статусом pending. Vue TypeScript/Vite, полный Go tests/vet и статические сборки прошли; Rust release собран для обеих архитектур.
+- Опубликованы `blackxdog/remote-control-server-ros:2.2.1` и `latest`, общий OCI digest `sha256:e1ad1e4a46601d935082114d21e09892915376c20f6449dba9605a67eef447b8` (linux/amd64 + linux/arm64).
+- Repull `rustdesk_server_routeros` выполнен. На MikroTik подтверждены UI 2.2.1, image-id `8b9f479644db1651c9bcd4dd81e3f8888d0dab56496e82c0b6774b974a7af28c`, API/HBBS/HBBR/DB online, 6 пользователей и 129 устройств (82 online на момент проверки). Минимум 8 символов, require_login и обязательное одобрение сохранены.
+
+### Упрощение парольной политики — выполнено (2026-09-07)
+
+- Согласовано: минимум 8 символов, без обязательных заглавных/строчных букв, цифр и спецсимволов.
+- План: обновить значения по умолчанию в проекте и сохранить политику через API работающего сервера.
+- Проверка: 7 символов отклоняются, 8 символов принимаются; прочие настройки сохраняются.
+- Применено через `PATCH /api/admin/settings` и подтверждено повторным чтением: минимум 8, все четыре требования к составу выключены, остальные настройки не изменены. Перезапуск не нужен, политика сохранена в БД.
+- Проверка на работающем сервере: 7 строчных букв → отказ; 8 строчных букв → HTTP 202, `pending` (заявка `policy-test-20260907091857`).
+- Обновлены значения по умолчанию в API и форме настроек. Тесты `TestPasswordPolicy*` прошли, включая длину Unicode; команда Go сообщила об ошибке очистки временного exe, занятого другим процессом, после успешного выполнения тестов.
 
 Every release must pass Vue TypeScript validation and production build, Go formatting/vet/tests/static linux-amd64 build, and Rust formatting/clippy/tests/release build. Container publication and target-host deployment are separate post-gate operations.
 
