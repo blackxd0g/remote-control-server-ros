@@ -252,4 +252,4 @@ compatibility, and develop the security and management features of future versio
 
 ## Standalone relay and Pro parity
 
-See [the minimal relay container](relay/README.md), [the Pro parity audit](docs/pro-parity-audit-2026-09-07.md), and [the roadmap](docs/roadmap-status.md).
+See [the minimal relay container](https://github.com/blackxd0g/remote-control-relay), [the Pro parity audit](docs/pro-parity-audit-2026-09-07.md), and [the roadmap](docs/roadmap-status.md).
