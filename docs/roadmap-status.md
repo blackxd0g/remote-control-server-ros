@@ -9,11 +9,12 @@
 - При начале, завершении, переносе или изменении объёма работ обновлять соответствующую запись.
 - Завершение фиксировать только после необходимых проверок; историю реализованных этапов сохранять.
 
-## Публикация на GitHub — в работе (2026-09-07)
+## Публикация на GitHub — выполнено (2026-09-07)
 
 - По запросу пользователя загрузить актуальные исходники, аудит Pro, дорожную карту и отдельный relay в существующий `blackxd0g/remote-control-server-ros`.
 - Relay разместить отдельным каталогом `relay/`; бинарные tar-артефакты поставить через отдельный GitHub Release, без изменения Docker Hub latest.
 - Проверить diff, исключение секретов/локальных данных и корректность ссылок. Завершение: commit доступен на GitHub, файлы релиза совпадают по SHA-256.
+- Выполнено: исходники 2.2.1, аудит и relay загружены в main, коммит `afad71b0db57da6df8ff19b973ec926eb34fa7ca`. [GitHub Release 2.2.1](https://github.com/blackxd0g/remote-control-server-ros/releases/tag/v2.2.1) содержит tar amd64/arm64 и SHA256SUMS; digest GitHub совпадают с локальными. GitHub CI запущен отдельно; прежние локальные проверки и опубликованный smoke-отчёт сохраняют силу.
 
 Historical complete labels below describe the stated implementation milestone, not full RustDesk Pro parity. Current functional gaps and acceptance gates are recorded in the 2026-09-07 audit and the PAR/REL plan below. Client-visible parity requires a successful real-client scenario in addition to models, APIs and automated coverage.
 
