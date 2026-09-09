@@ -10,30 +10,49 @@ permissions:
 jobs:
   code:
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.0-x86_64-unknown-linux-gnu
+      CARGO_BUILD_TARGET: x86_64-unknown-linux-gnu
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - name: Linux build prerequisites
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Web verification
+        working-directory: art-web
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm build
       - uses: actions/setup-go@v6
         with:
           go-version-file: art-api/go.mod
           cache-dependency-path: art-api/go.sum
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.98.0
           components: clippy,rustfmt
           targets: x86_64-unknown-linux-musl
+      - name: Build relay for integration tests
+        run: cargo build --locked -p art-hbbr
       - name: Go formatting
         run: test -z "$(find art-api -name '*.go' -exec gofmt -l {} +)"
       - name: Go verification
         working-directory: art-api
+        env:
+          RDS_TEST_HBBR_BINARY: ${{ github.workspace }}/target/x86_64-unknown-linux-gnu/debug/art-hbbr
         run: |
           go vet ./...
-          go test ./...
+          go test -count=1 ./...
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./...
       - name: Rust verification
         run: |
           cargo fmt --all -- --check
-          cargo clippy --workspace --all-targets -- -D warnings
-          cargo test --workspace
-          cargo build --workspace --release --target x86_64-unknown-linux-musl
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+          cargo test --locked --workspace
+          cargo build --locked --workspace --release --target x86_64-unknown-linux-musl
 
   containers:
     runs-on: ubuntu-latest
@@ -41,18 +60,18 @@ jobs:
       matrix:
         include:
           - dockerfile: docker/api.Dockerfile
-            platforms: linux/amd64,linux/arm64
+            platforms: linux/amd64
           - dockerfile: docker/hbbs.Dockerfile
-            platforms: linux/amd64,linux/arm64
+            platforms: linux/amd64
           - dockerfile: docker/hbbr.Dockerfile
-            platforms: linux/amd64,linux/arm64
+            platforms: linux/amd64
           - dockerfile: docker/all-in-one.Dockerfile
-            platforms: linux/amd64,linux/arm64
+            platforms: linux/amd64
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
+      - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
-      - name: Build multi-architecture image
+      # ARM64 verification is deferred by DEC-006; Dockerfiles retain support.
+      - name: Build amd64 image
         uses: docker/build-push-action@v6
         with:
           context: .

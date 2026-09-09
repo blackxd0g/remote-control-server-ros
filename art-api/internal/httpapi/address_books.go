@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -183,7 +184,13 @@ func (s *Server) clientSharedAddressBooks(response http.ResponseWriter, request 
 		}
 		profiles = append(profiles, map[string]any{"guid": book.ID, "name": book.Name, "owner": owners[book.OwnerUserID], "note": "", "rule": clientPermissionRule(book.Permission)})
 	}
-	writeJSON(response, http.StatusOK, map[string]any{"total": len(profiles), "data": profiles})
+	sort.Slice(profiles, func(i, j int) bool { return profiles[i]["guid"].(string) < profiles[j]["guid"].(string) })
+	start, end, err := clientPageBounds(request, len(profiles))
+	if err != nil {
+		writeError(response, http.StatusBadRequest, "invalid pagination")
+		return
+	}
+	writeJSON(response, http.StatusOK, map[string]any{"total": len(profiles), "data": profiles[start:end]})
 }
 
 func (s *Server) clientAddressBookPeers(response http.ResponseWriter, request *http.Request) {
@@ -198,7 +205,31 @@ func (s *Server) clientAddressBookPeers(response http.ResponseWriter, request *h
 		writeError(response, http.StatusInternalServerError, "address book unavailable")
 		return
 	}
-	writeJSON(response, http.StatusOK, map[string]any{"total": len(entries), "data": clientPeers(entries), "licensed_devices": 99999})
+	sort.Slice(entries, func(i, j int) bool { return entries[i].RustDeskID < entries[j].RustDeskID })
+	start, end, err := clientPageBounds(request, len(entries))
+	if err != nil {
+		writeError(response, http.StatusBadRequest, "invalid pagination")
+		return
+	}
+	writeJSON(response, http.StatusOK, map[string]any{"total": len(entries), "data": clientPeers(entries[start:end]), "licensed_devices": 99999})
+}
+
+// Legacy callers without pagination still receive a complete list.
+func clientPageBounds(r *http.Request, total int) (int, int, error) {
+	q := r.URL.Query()
+	if !q.Has("current") && !q.Has("pageSize") {
+		return 0, total, nil
+	}
+	current, e1 := strconv.Atoi(q.Get("current"))
+	size, e2 := strconv.Atoi(q.Get("pageSize"))
+	if e1 != nil || e2 != nil || current < 1 || size < 1 || size > 1000 {
+		return 0, 0, errors.New("invalid pagination")
+	}
+	if current-1 > total/size {
+		return total, total, nil
+	}
+	start := (current - 1) * size
+	return start, min(start+size, total), nil
 }
 
 func (s *Server) clientAddressBookTags(response http.ResponseWriter, request *http.Request) {

@@ -30,6 +30,7 @@ import (
 	"github.com/art-rustdesk/platform/art-api/internal/presence"
 	relayservice "github.com/art-rustdesk/platform/art-api/internal/relay"
 	"github.com/art-rustdesk/platform/art-api/internal/relaycontrol"
+	"github.com/art-rustdesk/platform/art-api/internal/relaygateway"
 	"github.com/art-rustdesk/platform/art-api/internal/runtimeconfig"
 	strategyservice "github.com/art-rustdesk/platform/art-api/internal/strategy"
 	webhookservice "github.com/art-rustdesk/platform/art-api/internal/webhook"
@@ -63,6 +64,7 @@ type Server struct {
 	metricsToken        []byte
 	trustedProxies      []netip.Prefix
 	relayControl        *relaycontrol.Client
+	relayGateway        *relaygateway.Gateway
 }
 
 func New(authService *auth.Service, mfaService *mfa.Service, auditService *audit.Service, repository domain.Repository,
@@ -71,6 +73,22 @@ func New(authService *auth.Service, mfaService *mfa.Service, auditService *audit
 		repository: repository, hub: hub, internalSecret: internalSecret, loginLimiter: loginLimiter,
 		addressBooks: addressbookservice.New(repository), strategies: strategyservice.New(repository), runtime: newRuntimeState(),
 		relayControl: relaycontrol.New(internalSecret)}
+	server.relayGateway = relaygateway.New()
+	server.relayGateway.Check = server.checkRelayCredential
+	server.relayGateway.Report = server.reportRelay
+	if delivery, ok := repository.(interface {
+		AuthorizeRelay(context.Context, string, string, string) error
+		ApplyRelayEvent(context.Context, string, string, string, relaygateway.Message) error
+	}); ok {
+		server.relayGateway.Authorize = delivery.AuthorizeRelay
+		server.relayGateway.DurableReport = func(ctx context.Context, id, token string, m relaygateway.Message) error {
+			relay, err := server.relayByID(ctx, id)
+			if err != nil {
+				return err
+			}
+			return delivery.ApplyRelayEvent(ctx, id, token, net.JoinHostPort(relay.Hostname, strconv.Itoa(relay.Port)), m)
+		}
+	}
 	server.routes()
 	return server
 }
@@ -125,6 +143,16 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) routes() {
+	s.mux.Handle("POST /api/admin/relay-servers/{relayID}/enrollment", s.requirePermission(domain.PermissionRelaysWrite, http.HandlerFunc(s.createRelayEnrollment)))
+	s.mux.Handle("GET /api/admin/relay-servers/{relayID}/delivery", s.requirePermission(domain.PermissionRelaysRead, http.HandlerFunc(s.relayDeliveryStatus)))
+	s.mux.Handle("POST /api/admin/relay-servers/{relayID}/delivery/compact", s.requirePermission(domain.PermissionRelaysWrite, http.HandlerFunc(s.compactRelayDelivery)))
+	s.mux.Handle("GET /api/admin/relay-servers/{relayID}/quarantine", s.requirePermission(domain.PermissionRelaysRead, http.HandlerFunc(s.relayQuarantine)))
+	s.mux.Handle("GET /api/admin/relay-servers/{relayID}/quarantine/export", s.requirePermission(domain.PermissionRelaysWrite, http.HandlerFunc(s.exportRelayQuarantine)))
+	s.mux.Handle("POST /api/admin/relay-servers/{relayID}/quarantine/archive", s.requirePermission(domain.PermissionRelaysWrite, http.HandlerFunc(s.archiveRelayQuarantine)))
+	s.mux.Handle("DELETE /api/admin/relay-servers/{relayID}/credential", s.requirePermission(domain.PermissionRelaysWrite, http.HandlerFunc(s.revokeRelayCredential)))
+	s.mux.HandleFunc("POST /api/relay/enroll", s.enrollRelay)
+	s.mux.HandleFunc("GET /api/relay/{relayID}/control", s.connectRelay)
+	s.mux.Handle("POST /internal/v1/relay/permit", s.requireInternal(http.HandlerFunc(s.permitRelay)))
 	s.mux.HandleFunc("GET /healthz", s.health)
 	s.mux.HandleFunc("GET /metrics", s.metrics)
 	s.mux.HandleFunc("GET /api/login-options", s.loginOptions)
@@ -425,6 +453,7 @@ func (s *Server) selectRelay(response http.ResponseWriter, request *http.Request
 		writeError(response, http.StatusInternalServerError, "relay selection unavailable")
 		return
 	}
+	s.relayControlState(request.Context(), values)
 	value, err := relayservice.Select(values, strings.TrimSpace(request.URL.Query().Get("region")))
 	if errors.Is(err, domain.ErrNotFound) {
 		writeError(response, http.StatusServiceUnavailable, "no healthy relay available")
@@ -647,6 +676,7 @@ func (s *Server) listRelayServers(response http.ResponseWriter, request *http.Re
 		writeError(response, 500, "failed to list relay servers")
 		return
 	}
+	s.relayControlState(request.Context(), values)
 	writeJSON(response, 200, values)
 }
 func (s *Server) createRelayServer(response http.ResponseWriter, request *http.Request) {
@@ -1140,16 +1170,17 @@ type deviceInfo struct {
 }
 
 type loginRequest struct {
-	Username         string     `json:"username"`
-	Password         string     `json:"password"`
-	ID               string     `json:"id"`
-	UUID             string     `json:"uuid"`
-	Type             string     `json:"type"`
-	AutoLogin        bool       `json:"autoLogin"`
-	DeviceInfo       deviceInfo `json:"deviceInfo"`
-	VerificationCode string     `json:"verification_code"`
-	TFACode          string     `json:"tfaCode"`
-	Secret           string     `json:"secret"`
+	Username               string     `json:"username"`
+	Password               string     `json:"password"`
+	ID                     string     `json:"id"`
+	UUID                   string     `json:"uuid"`
+	Type                   string     `json:"type"`
+	AutoLogin              bool       `json:"autoLogin"`
+	DeviceInfo             deviceInfo `json:"deviceInfo"`
+	VerificationCode       string     `json:"verification_code"`
+	ClientVerificationCode string     `json:"verificationCode"`
+	TFACode                string     `json:"tfaCode"`
+	Secret                 string     `json:"secret"`
 }
 
 func (s *Server) login(response http.ResponseWriter, request *http.Request) {
@@ -1167,6 +1198,14 @@ func (s *Server) login(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	input.Username = strings.TrimSpace(strings.ToLower(input.Username))
+	// Official 1.4.9 uses email_code for the TOTP challenge dialog as well.
+	// Never interpret a bare email verification request as a successful second factor.
+	if input.Type == "email_code" && input.Secret != "" && input.TFACode != "" {
+		input.Type = "tfa_code"
+	}
+	if input.VerificationCode == "" {
+		input.VerificationCode = input.ClientVerificationCode
+	}
 	if input.Type != "tfa_code" {
 		if allowed, retryAfter := s.accountLoginAllowed(request.Context(), input.Username, now); !allowed {
 			response.Header().Set("Retry-After", strconv.Itoa(max(1, int(retryAfter.Seconds()))))
@@ -1205,7 +1244,7 @@ func (s *Server) login(response http.ResponseWriter, request *http.Request) {
 			s.loginLimiter.Failure(ip, now)
 			s.accountLoginFailure(request.Context(), user.Username, now)
 			_ = s.audit.Record(request.Context(), domain.AuditEvent{Type: "login_failed", ActorUserID: user.ID, IP: ip, Result: "denied", Reason: "invalid_mfa"})
-			writeJSON(response, http.StatusUnauthorized, map[string]any{"error": "invalid two-factor code", "type": "tfa_check", "tfa_type": "totp", "secret": input.Secret})
+			writeJSON(response, http.StatusUnauthorized, map[string]any{"error": "invalid two-factor code", "type": "email_check", "tfa_type": "tfa_check", "secret": input.Secret})
 			return
 		}
 		if _, err = s.repository.ConsumeAuthChallenge(request.Context(), input.Secret, now); err != nil {
@@ -1265,7 +1304,7 @@ func (s *Server) login(response http.ResponseWriter, request *http.Request) {
 					return
 				}
 				_ = s.audit.Record(request.Context(), domain.AuditEvent{Type: "mfa_challenge_created", ActorUserID: user.ID, IP: ip, Result: "success", Metadata: map[string]any{"expires_in_seconds": 180}})
-				writeJSON(response, http.StatusOK, map[string]any{"access_token": "", "type": "tfa_check", "tfa_type": "totp", "secret": challenge.ID, "user": clientUser(user)})
+				writeJSON(response, http.StatusOK, map[string]any{"access_token": "", "type": "email_check", "tfa_type": "tfa_check", "secret": challenge.ID, "user": clientUser(user)})
 				return
 			}
 			writeJSON(response, http.StatusUnauthorized, map[string]any{"error": "two-factor authentication required", "requires_2fa": true})
@@ -2234,6 +2273,7 @@ func (s *Server) authSnapshot(response http.ResponseWriter, request *http.Reques
 		strategies, strategyErr := s.repository.ListStrategies(request.Context())
 		memberships, membershipErr := s.repository.ListUserGroupMemberships(request.Context())
 		relays, relayErr := s.repository.ListRelayServers(request.Context())
+		s.relayControlState(request.Context(), relays)
 		if deviceErr != nil || aclErr != nil || strategyErr != nil || membershipErr != nil || relayErr != nil {
 			writeError(response, http.StatusInternalServerError, "policy snapshot unavailable")
 			return
@@ -2542,6 +2582,7 @@ func trustedProxyHeaders(trusted []netip.Prefix, next http.Handler) http.Handler
 		if err != nil || !prefixContains(trusted, peerAddress.Unmap()) {
 			request.Header.Del("X-Forwarded-For")
 			request.Header.Del("X-Real-IP")
+			request.Header.Del("X-Forwarded-Proto")
 			next.ServeHTTP(response, request)
 			return
 		}

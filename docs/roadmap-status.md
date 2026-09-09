@@ -1,238 +1,79 @@
-# Roadmap status
+# Дорожная карта
 
-## Правила ведения дорожной карты
+Обновлено: 2026-09-07. Главная согласованная цель — функциональный аналог RustDesk Pro, подтверждённый реальными пользовательскими сценариями. Полнота пока не достигнута.
 
-По требованию пользователя от 2026-09-07 все наши планы по серверному проекту обязательно фиксируются в этом документе до начала реализации.
+Здесь хранятся все прошлые и будущие цели на уровне результата. Шаги, проверки и сбои — в [журнале](journal/README.md); технические детали — в [аудите](pro-parity-audit-2026-09-07.md) и спецификациях. Новые цели добавлять до реализации. Статусы: предложено → запланировано → в работе → выполнено; «отложено» сохраняет цель и причину. Предложение не означает согласованную реализацию.
 
-- Для новых задач указывать ожидаемый результат, статус и критерии готовности.
-- Предложения отделять от согласованных планов; приоритет и целевой релиз указывать, когда они определены.
-- При начале, завершении, переносе или изменении объёма работ обновлять соответствующую запись.
-- Завершение фиксировать только после необходимых проверок; историю реализованных этапов сохранять.
+**Ограничение:** только локальная разработка. GitHub/Docker Hub публикации и production deployment запрещены до нового явного разрешения. Сроки и номера будущих релизов не назначены.
 
-## Отдельный GitHub-репозиторий relay — выполнено (2026-09-07)
+## В работе
 
-- По уточнению пользователя выделить relay в самостоятельный `blackxd0g/remote-control-relay`, с приватной видимостью: автоматическая проверка не разрешила публичное создание без явного указания пользователя.
-- Опубликовать Dockerfile, Compose, инструкцию, протокольные тесты и проверенные tar-образы в собственном релизе 2.2.1.
-- Удалить дублирующий каталог `relay/` из актуальной ветки серверного репозитория и заменить ссылки на новый репозиторий. Исторические коммиты и релизы сохранить.
-- Выполнено: [самостоятельный репозиторий](https://github.com/blackxd0g/remote-control-relay), коммит `2a9c149da3ea0d3986eadb25d2934667c031c0ce`, [релиз 2.2.1](https://github.com/blackxd0g/remote-control-relay/releases/tag/v2.2.1) с amd64/arm64 и SHA256SUMS. Digest GitHub совпали с проверенными файлами. Дублирующий каталог удалён из main серверного репозитория; ссылки обновлены. Старые коммиты и release-артефакты сохраняются как история.
+REL-OPS-02 — выполнено и проверено локально: полный просмотр и защищённый экспорт карантина; очистка только подтверждённого снимка с предварительной постоянной резервной копией и аудитом. Пройдены проверки прав/аудита, изменения ревизии, повторов/restart, ошибок диска, полного карантина, измеренная локальная нагрузка и PostgreSQL. [Объём и ограничения](relay-quarantine-maintenance.md). Только локальная разработка.
 
-## Публикация на GitHub — выполнено (2026-09-07)
+REL-OPS-01 — выполнено и проверено локально: диагностика очереди relay в консоли, постоянный карантин событий прежнего поколения ключа без блокировки новых событий, ограниченное уплотнение завершённой истории API с сохранением защиты от replay. Пройдены проверки ротации/restart/позднего повтора/прав доступа, Go/Rust/Web и локальный HBBR. [Контракт и границы](relay-operations.md). Публикация и production deployment запрещены.
 
-- По запросу пользователя загрузить актуальные исходники, аудит Pro, дорожную карту и отдельный relay в существующий `blackxd0g/remote-control-server-ros`.
-- Relay разместить отдельным каталогом `relay/`; бинарные tar-артефакты поставить через отдельный GitHub Release, без изменения Docker Hub latest.
-- Проверить diff, исключение секретов/локальных данных и корректность ссылок. Завершение: commit доступен на GitHub, файлы релиза совпадают по SHA-256.
-- Выполнено: исходники 2.2.1, аудит и relay загружены в main, коммит `afad71b0db57da6df8ff19b973ec926eb34fa7ca`. [GitHub Release 2.2.1](https://github.com/blackxd0g/remote-control-server-ros/releases/tag/v2.2.1) содержит tar amd64/arm64 и SHA256SUMS; digest GitHub совпадают с локальными. GitHub CI запущен отдельно; прежние локальные проверки и опубликованный smoke-отчёт сохраняют силу.
 
-Historical complete labels below describe the stated implementation milestone, not full RustDesk Pro parity. Current functional gaps and acceptance gates are recorded in the 2026-09-07 audit and the PAR/REL plan below. Client-visible parity requires a successful real-client scenario in addition to models, APIs and automated coverage.
+REL-02 durable delivery — реализовано и проверено локально: очередь на отдельном томе, сохранённая принадлежность permit и транзакционные receipts/projection; reopen БД, restart настоящего HBBR/API gateway, чужой relay/ротация, повторы, лимит и ошибки диска. [Контракт и ограничения](relay-durable-delivery.md).
 
-## Сверка с RustDesk Server Pro и отдельный relay — аудит и локальная поставка выполнены (2026-09-07)
+REL-02: предшествующий блок устойчивости выполнен — backoff/jitter, command retries и таймауты. Длительный soak, multi-API и полная клиентская приёмка остаются открытыми; локальное обслуживание карантина и bounded load приняты в REL-OPS-02. [Результат и ограничения](relay-control-development.md).
 
-- Цель: функциональная полнота аналога RustDesk Server Pro, подтверждённая реальными сценариями официального клиента, а не только наличием моделей и API.
-- Провести аудит кода и тестов версии 2.2.1, сверить с текущей официальной документацией Pro; составить матрицу «реализовано / частично / отсутствует / не проверено» с доказательствами и приоритетами.
-- Пересмотреть старые отметки complete там, где они описывают лишь серверную основу; записать оставшиеся этапы и критерии приёмки.
-- Подготовить отдельный минимальный relay-контейнер: один HBBR, без API, Web, HBBS и БД, amd64/arm64, совместимость с авторизацией основного сервера, документация Compose/RouterOS, проверка передачи данных и отказа без разрешения.
-- Публикацию и установку нового relay на конкретном узле учитывать отдельно от локальной сборки и тестирования.
-- Итог: [аудит Pro parity](pro-parity-audit-2026-09-07.md) составлен по исходникам и официальной документации. Полнота Pro пока не достигнута; исторические complete уточнены для Strategies, HA, Stable и исправлена устаревшая граница termination.
-- REL-01 выполнен: [отдельный проект relay](https://github.com/blackxd0g/remote-control-relay), scratch-образ с единственным HBBR 2.2.1, amd64/arm64, non-root/read-only, Compose, RouterOS-шаблон и tar-артефакты. Проверены реальные TCP/WS/mixed данные, отказ без permit/с неверным токеном/по expiry, лимит двух peers, terminate/ack и закрытие обоих концов, регистрация телеметрии в изолированном API. Это протокольный smoke, не полная приёмка официального клиента. ARM64 проверен под эмуляцией.
-- Публикация отдельного relay в registry и установка на новый production-узел не выполнены: целевой узел ещё не определён. Существующий production в рамках этой задачи не изменялся.
 
-## Остаток до функциональной полноты Pro — предложенный порядок
-
-Цель согласована пользователем; ниже предложены этапы по результатам аудита. Номера релизов, сроки и полная матрица целевых ОС пока не утверждены. Реализация этих этапов не включена в выполненный аудит.
-
-| ID | Приоритет / статус | Результат и критерии готовности |
+| ID | Цель / статус | Критерий готовности и оставшееся |
 |---|---|---|
-| PAR-01 | P0, предложен первым | Версии официальных клиентов и стенд; сквозные login/approval/2FA/ACL/AB/relay/revoke сценарии с отчётами по ОС, включая отрицательные проверки |
-| PAR-02 | P0, предложен | Control Roles и scoped Admin Roles; спецификация Strategies, общие fixtures Go/Rust, безопасная миграция текущих приоритетов; права внутри сессии реально соблюдаются клиентом |
-| REL-02 | P0 до менее доверенной сети, предложен | Отдельные отзываемые relay credentials, private control_address, permit ack/replay protection, handshake timeout и лимиты; rotation/restart/reconnect проверены |
-| PAR-03 | P1, предложен | SMTP TLS и очередь доставки, приглашение/email verification/reset password; одноразовые истекающие токены и отрицательные проверки |
-| PAR-04 | P1, предложен | Изолированные native workers, подписанные установщики и metadata; build/install/connect/update/rollback на каждой заявленной платформе |
-| PAR-05 | P1, предложен | Полноценный hosted web client через HTTPS/WSS: вход, адресная книга, экран/ввод, файлы, отзыв доступа |
-| REL-03 | P1, предложен | Географический выбор relay относительно клиента, fallback/health/load и управляемое выключение узла; проверка с разных регионов |
-| PAR-06 | P1, предложен | Scoped audit/API/export, AB sync/offline/conflicts, pagination, retention и контроль доставки; измеренный рост БД и нагрузочный отчёт |
-| PAR-07 | P2, предложен | Live OIDC/AD проверки, Postgres integration, межузловой outbox/events, API/HBBS failover и partition, restore drill с RPO/RTO; декомпозиция затрагиваемых крупных модулей |
-| PAR-08 | Финальная приёмка, ожидает предыдущие этапы | Каждый пункт матрицы Pro имеет воспроизводимый passed-сценарий или явно согласованное исключение; upgrade/rollback проверены |
+| REL-02 | Управление relay без VPN: прототип, устойчивость и durable delivery реализованы локально, приёмка продолжается | Локальные PostgreSQL runtime, обслуживание карантина и ограниченный нагрузочный smoke приняты. Остаются длительный soak/пределы одновременных пар, политика неиспользованных разрешений и архивных файлов, multi-API маршрутизация либо явное ограничение топологии. Принять официальный клиент, публичный HTTPS/WSS стенд и amd64; проверка ARM64 отложена по указанию пользователя от 2026-09-07 (REL-ARM64); UDP control отсутствует в Internet profile. [Контракт и проверки](relay-control-development.md) |
 
-REL-DEPLOY: отдельная установка relay ожидает выбора узла и адресации. Перед установкой подготовить конкретный конфиг/VPN/firewall/secret mount, затем проверить выдачу permit от настоящего HBBS, выбор relay официальным клиентом и завершение сеанса из консоли. RouterOS-шаблон не считается production-проверкой.
+## Следующие цели
 
-## 0.1 Authentication Core — complete
+Порядок PAR/REL ниже предложен по аудиту; главная цель согласована, конкретная очередь, сроки и матрица ОС требуют уточнения при выборе этапа.
 
-- Argon2id local authentication, first-run bootstrap, rate limiting, server-side sessions, strict JWT claims, logout/revoke/disable/force-relogin, and immutable audit events.
-- Authentication is enforced by HBBS before target lookup, punch-hole instructions, or relay permits. The last-valid authorization cache is event-driven, reconciled, persisted, and fail-closed on an empty installation.
-- Official RustDesk login, account, heartbeat, inventory, audit, TCP, and WebSocket flows are supported.
+| ID | Приоритет / статус | Результат и критерий готовности |
+|---|---|---|
+| REL-ARM64 | Отложено по указанию пользователя от 2026-09-07 | Проверка новых серверных/relay-сборок на ARM64 возобновляется после нового указания пользователя; текущая приёмка ограничена amd64. Поддержка архитектуры из проекта не удаляется |
+| PAR-01 | P0, в работе; частичная локальная приёмка | Матрица официальных клиентов и стенд на amd64: login/approval/2FA/ACL/адресная книга/relay/revoke проходят по заявленным ОС, включая отрицательные сценарии. Linux 1.4.9: вход/выход/TOTP, большая личная книга, approval, ACL deny/restore, запрет новых подключений после revoke, экран и ввод через relay проверены. Исправлены TOTP, пагинация и формат публичного ключа HBBS. Принудительный разрыв активной связи, файлы и остальные критерии открыты: [матрица](official-client-acceptance.md). ARM64 отложена |
+| PAR-02 | P0, предложено | Control Roles, scoped Admin Roles и совместимые Strategies; общие Go/Rust fixtures, безопасная миграция приоритетов, права внутри сессии реально соблюдаются клиентом |
+| PAR-03 | P1, предложено | SMTP TLS, очередь доставки, приглашения, email verification и reset password; одноразовые истекающие токены и отрицательные проверки |
+| PAR-04 | P1, предложено | Изолированные native builder workers, подписанные установщики, брендинг/config/metadata; build/install/connect/update/rollback на каждой заявленной платформе |
+| PAR-05 | P1, предложено | Hosted web client по HTTPS/WSS: вход, адресная книга, экран/ввод, файлы и отзыв доступа |
+| REL-03 | P1, предложено | Выбор relay относительно региона клиента, health/load/fallback и управляемое выключение узла; проверка из разных регионов |
+| PAR-06 | P1, предложено | Scoped audit/API/export, синхронизация адресной книги/offline/conflicts, pagination/retention/доставка; измеренные рост БД и нагрузка |
+| PAR-07 | P2, предложено | Live OIDC/AD, PostgreSQL integration, межузловые outbox/events, API/HBBS failover/partition, restore drill с RPO/RTO; декомпозиция затрагиваемых крупных модулей |
+| PAR-08 | Финальная приёмка, запланировано | Каждый пункт матрицы Pro имеет воспроизводимый passed-сценарий или согласованное исключение; upgrade/rollback проверены |
+| REL-DEPLOY | Отложено: запрет публикаций/установки, узел не выбран | После отдельного разрешения определить узел и адресацию, подготовить firewall/TLS либо VPN для legacy, проверить auth/permit/официальный клиент, отказ/восстановление и целевую архитектуру. Публикация relay в registry и установка фиксируются отдельно |
 
-## 0.2 Access Control — complete
+## Достигнутые этапы
 
-- User groups, device groups, tags, personal/shared address books, folders, favourites, search, grants, and current-client address-book routes.
-- Server-side ACL permissions are resolved and enforced by HBBS before a connection is established.
+Историческое «выполнено» относится к указанному объёму, а не ко всей совместимости с Pro. Подробности, старые планы и ход поставок сохранены в [архиве карты](archive/roadmap-2026-09-07-before-docs-reorganization.md) и release notes.
 
-## 0.3 Strategies — complete
+| Этап | Достигнутый результат / граница |
+|---|---|
+| DASH-01 | В карточку онлайн-пользователей добавлен просмотр списка с поиском, последней активностью и устройством. Общий presence-снимок, users.read, загрузка/ошибка/пустое состояние; TypeScript и production build прошли. Только локально |
+| DOC-02 | Добавлены инструкции окружения, локального запуска и тестирования для нового чата; команды сверены с конфигурацией и исходниками, ссылки проверены. [Разработка](../CONTRIBUTING.md), [проверки](testing.md) |
+| 0.1–0.2 | Аутентификация, сессии и проверка доступа до соединения; группы пользователей/устройств, адресная книга, теги и ACL |
+| 0.3 | Собственная серверная модель Strategies; совместимость семантики Pro остаётся в PAR-02 |
+| 0.4–0.5 | TOTP/OIDC/LDAP, RBAC/API tokens; мониторинг relay, telemetry, notifications/webhooks. Внешняя приёмка OIDC/AD — PAR-07 |
+| 0.6 и 1.7 | Managed-client control plane, очередь сборок и индивидуальная авторизация workers; native workers — PAR-04 |
+| 0.7–0.9 | Метрики/диагностика, управление жизненным циклом устройств, CSV, поиск аудита и аналитика |
+| 1.0–1.1 | Управление и отзыв сессий; SQLite backup/restore |
+| 1.2 и 2.1.0 | Live connections и terminate/ack установленных relay-пар; принудительное прекращение прямого P2P не гарантируется |
+| 1.3–1.5 | Настраиваемая безопасность, allow/deny ACL и симулятор, автоматизация событий |
+| 1.6 | Node inventory и leader leases; полноценная HA не принята, остаётся PAR-07 |
+| 1.8–2.0 | Support bundle, подготовка обновлений, стабильная серверная основа; не полная Pro parity |
+| 2.1.1–2.2.0 | Брендинг и multiarchitecture-поставка |
+| 2.2.1 | Исправлена регистрация, пароль по умолчанию от 8 символов без обязательных классов; исправлен выбор архитектуры Go. Фикс выпущен и установлен на MikroTik до текущего запрета публикаций. [Release notes](release-2.2.1.md) |
+| Аудит Pro | Матрица реализованного и недостающего подготовлена; оставшиеся цели PAR-01…08 и REL-02…03 |
+| REL-01 | Минимальный отдельный HBBR 2.2.1, amd64/arm64, Compose/RouterOS и протокольные проверки. Отдельный приватный репозиторий и GitHub release; registry/новая production-установка — REL-DEPLOY |
+| GitHub-разделение | Сервер опубликован; relay вынесен в отдельный репозиторий, дублирующий каталог удалён из актуальной серверной ветки, история сохранена. Новые локальные изменения не опубликованы |
+| DOC-01 | Настроены AGENTS.md, журнал, решения и сводка состояния; карта сокращена до целей. Архив сохранён, все ID перенесены, 26 локальных ссылок проверены. [Результат](journal/2026-09-07.md) |
 
-Аудит 2026-09-07: завершена собственная серверная модель; Pro parity частична. Алгоритм объединения/приоритетов отличается от Pro, требуется PAR-02 и сквозная проверка клиента.
+Текущее состояние поставок и разработки — в [сводке](project-state.md). Полная приёмка релиза и разрешение на публикацию — отдельные условия, определённые в AGENTS.md.
 
-- Global, user, user-group, device, and device-group assignments with deterministic priority and specificity inheritance.
-- Security-sensitive settings are enforced by HBBS; compatible client settings are delivered through the official heartbeat response.
 
-## 0.4 Enterprise Auth — complete
 
-- TOTP with one-time recovery codes and configurable enforcement modes.
-- Generic OIDC account linking and login.
-- LDAP/Active Directory over LDAPS or StartTLS with explicit group mappings and controlled auto-provisioning.
-- Persistent custom RBAC roles and scoped, revocable deployment API tokens.
 
-## 0.5 Infrastructure — complete
 
-- Multiple relay registration, health/latency/load history, regional selection, live HBBR telemetry, and authenticated HBBS control.
-- API, database, HBBS, HBBR, device, session, CPU, RAM, connection, and traffic visibility.
-- Persistent administrator notifications and signed webhook delivery with retry history and SSRF protection.
 
-## 0.6 Client Management — server side complete
+## Разрешённый выпуск 2026-09-09
 
-- Managed client profiles, scoped assignments, versioned effective configuration, branding metadata, and official-heartbeat delivery.
-- Immutable signed configuration artifacts and a persistent native-build queue with atomic capability-aware claims, expiring leases, heartbeat renewal, cancellation, retry and audited completion.
-- Dedicated builder authentication, persistent worker inventory, SHA-256 verified binary uploads and artifact downloads are complete. Native compilation itself deliberately remains in dedicated sandboxed platform workers, outside the API/HBBS/HBBR container and repository.
-
-## 0.7 Production Operations — complete
-
-- Token-protected Prometheus gauges for users, sessions, devices, HBBS/HBBR, relays, traffic, CPU, RAM, uptime and auth-cache revision.
-- Authenticated server self-diagnostics for database responsiveness, persistent storage, secret permissions, service heartbeats and reverse-proxy trust configuration.
-- Explicit trusted-proxy CIDRs with right-to-left `X-Forwarded-For` resolution; forwarding headers from untrusted peers are discarded before authentication, rate limiting or audit.
-- Online SQLite snapshots plus bounded, read-only backup upload inspection using SQLite `quick_check`, required-schema validation and audited results. Inspection never replaces the active database.
-- Hardened browser response headers, durable metrics credentials and production reverse-proxy documentation.
-
-## 0.8 Device Lifecycle & Fleet Operations — complete
-
-- Active and archived inventories are separated without losing heartbeat history or management metadata.
-- Devices can be archived, restored, and permanently removed only after archival; a later heartbeat can safely rediscover a removed device.
-- Transactional bulk assignment supports device groups plus independent tag additions and removals.
-- UTF-8 CSV export is spreadsheet-safe. Bounded CSV import validates schema, duplicate IDs, field limits, device groups, active inventory membership, and applies the entire file atomically.
-- Lifecycle, bulk-update, and import operations are permission-protected and recorded in the immutable audit trail.
-
-## 0.9 Audit Explorer & Connection Analytics — complete
-
-- Indexed server-side filtering by event type, result, actor, target device, IP address, free-text term, and UTC date range.
-- Exact result totals and bounded pagination keep the console responsive with large audit histories.
-- Filter-aware counters cover total events, allowed and denied connections, and failed authentication attempts.
-- Detailed event inspection exposes session, controller, target, reason, and structured metadata without flattening the immutable record.
-- Filter-aware UTF-8 CSV export streams the audit history in bounded database pages and protects spreadsheet cells from formula injection.
-
-## 1.0 Session Security Center — complete
-
-- Unified active, revoked, and expired session inventory with the associated username, display name, user state, device identity, client, IP, creation, activity, and expiry data.
-- Indexed server-side lifecycle filtering, user/device/IP/client search, exact totals, and bounded pagination.
-- Administrators can select and revoke up to 500 active sessions in one operation; every revocation is propagated immediately to HBBS through the existing event-driven authentication cache.
-- The current administration session is identified server-side and protected from accidental bulk revocation.
-- Bulk revocation requires `sessions.revoke`, validates the complete selection before mutation, and creates one immutable administrative audit event containing the affected session IDs.
-
-## 1.1 Backup & Disaster Recovery — complete
-
-- Scheduled and on-demand online SQLite snapshots are stored under the persistent `/data/backups` directory with configurable retention.
-- Every generated or uploaded database is validated with SQLite `quick_check` and required-schema inspection before it is accepted.
-- Administrators can list, download, and delete snapshots or stage an uploaded snapshot for recovery through a dedicated RBAC-protected console.
-- Restore is applied before services start, verifies a persisted SHA-256 marker, preserves the previous database plus WAL/SHM files, and atomically replaces the active database.
-- Backup creation, deletion, restore staging, cancellation, and rejected restore attempts are recorded in the immutable audit trail.
-
-## 1.2 Live Connection Operations — complete
-
-- Official-client `connection_started`, `connection_updated`, and `connection_closed` telemetry is correlated into active, stale, and recently closed connections.
-- Connection audit now resolves the authenticated operator and server session from the controller device, so the console can show who connected to each RustDesk ID.
-- The administration console provides an auto-refreshing connection center with controller device, target ID, connection type, IP address, start time, and duration.
-- Administrators can contain an attributed live connection in one action: the operator session is revoked through the normal event-driven auth path, reconnects are blocked immediately, the live projection is closed, and the action is written to the immutable audit trail.
-- Historical 1.2 boundary: transport interruption was not guaranteed. Superseded by 2.1.0: HBBR UUID correlation, terminate/ack and cancellation now close established relay pairs. Direct P2P streams still cannot be reliably torn down after rendezvous by server design.
-
-## 1.3 Security & Compliance — complete
-
-- Password requirements are centrally configurable and enforced for registration, user creation, password changes, and administrator edits without weakening existing Argon2id storage.
-- Username-based brute-force state and lockouts are persisted in the shared database, survive restarts, normalize login names, expose `Retry-After`, and are cleared after a successful authentication.
-- TOTP enrollment, mandatory modes, one-time recovery codes, administrator reset, server-side session revocation, security audit events, and hardened proxy/header handling remain enforced.
-
-## 1.4 Advanced Access Control — complete
-
-- ACL rules support explicit `allow` and `deny` effects. Lower priority numbers take precedence; at the same priority an explicit deny wins.
-- API simulation and HBBS pre-connection enforcement use the same deterministic rule semantics. Existing installations migrate old rules to `allow` without manual intervention.
-- The console includes an effective-access simulator with per-rule matching trace, winning effect, and priority, so administrators can verify a policy before relying on it.
-
-## 1.5 Event-driven Automation — complete
-
-- Persistent automation rules subscribe to the existing internal event stream and can filter domain or immutable audit event fields without polling.
-- Rules provide durable execution history, per-rule throttling, severity, RBAC-protected management APIs, administrator notifications, and a dedicated console.
-- Outbound actions reuse the signed webhook delivery pipeline with retry and SSRF protection; no shell-command action is exposed and generated events cannot recursively invoke automation.
-
-## 1.6 High Availability & Cluster Readiness — complete
-
-Аудит 2026-09-07: complete относится к node inventory и leader leases. Полноценная HA не принята: in-memory event hub не обеспечивает межузловую доставку, failover требует PAR-07.
-
-- API instances have a persistent node identity, database-backed heartbeat inventory, and an administrator-visible cluster state endpoint.
-- Atomic renewable leases work on SQLite and PostgreSQL semantics and prevent an active lease from being stolen before expiry.
-- Relay monitoring, webhook delivery, and scheduled backups run under separate leader leases; event ingestion remains local to every API node so events are not dropped on followers.
-- The dashboard exposes active API nodes and leases, and existing saved layouts automatically acquire newly introduced widgets.
-
-## 1.7 External Builder Trust Boundary — complete
-
-- The shared bootstrap credential can only register a worker. Registration returns a unique high-entropy worker credential once, and only its SHA-256 digest is persisted.
-- Heartbeat, claim, lease renewal, payload, completion, and failure routes require the individual worker credential and bind every operation to the authenticated worker identity.
-- Re-registering a worker explicitly rotates its credential. A worker cannot impersonate another worker ID or use the bootstrap credential to claim work.
-- Native compilation remains intentionally outside this image. The server-side queue and protocol are stable; the separately isolated worker container can be connected later without access to the database or server secrets.
-
-## 1.8 Supportability — complete
-
-- Administrators can download an audited support ZIP from a dedicated console page.
-- The bundle contains version, safe runtime policy, cluster state, inventory counters, and a bounded redacted audit timeline.
-- Passwords, hashes, JWTs, worker credentials, usernames, IP addresses, file names, and connection content are excluded by construction.
-
-## 1.9 Upgrade Readiness — complete
-
-- Database changes through 2.0 are additive and migrate automatically for existing SQLite and PostgreSQL installations.
-- Persistent `/data` keeps the legacy database filename, server identity, JWT/session material, branding, backups, and runtime configuration to avoid a destructive rename during upgrade.
-- A documented pre-upgrade backup, rollback boundary, release checklist, and immutable versioned image tag are required for the 2.0 release gate.
-
-## 2.0 Stable — complete
-
-Аудит 2026-09-07: исторический stable-релиз серверной основы, не заявление о полнофункциональном RustDesk Pro. Native generator и web client остаются незавершёнными пользовательскими сценариями.
-
-- Authentication, pre-connection enforcement, ACL, Strategies, enterprise authentication, audit, automation, cluster coordination, backup/restore, fleet operations, managed-client control plane, and supportability have a persistent production implementation.
-- The external native Builder worker remains an optional separate component and is not bundled into the lightweight RouterOS image.
-
-## Исправление регистрации новых пользователей — выполнено в 2.2.1 (2026-09-07)
-
-- План: проверить публичную форму, API регистрации, сохранение пользователя и процесс одобрения; воспроизвести и исправить сбой.
-- Ожидаемый результат: при включённой регистрации корректные данные создают пользователя; при обязательном одобрении доступ разрешается только после решения администратора, а ошибки понятно отображаются в форме.
-- Критерии готовности: регрессионные проверки найденного дефекта, проверка запрета отключённой регистрации и обхода одобрения, необходимые проверки Go и сборка Vue/TypeScript.
-- Публикация и установка исправления: статус уточняется после проверки реализации.
-- Диагностика: сервер возвращает `enabled=true`, `approval_required=true`; локальные `TestRegistration*` проходят. Конкретный пользовательский сбой пока не воспроизведён, запрошено описание ошибки. В форме обнаружены отдельные недостатки: игнорирование `enabled` и отсутствие подсказок по требованиям к данным.
-- Сбой воспроизведён через браузер на версии 2.1.1: пароль `Test12345` вызывает непрозрачную ошибку `account could not be registered`; подходящий пароль с тем же логином создаёт заявку. План исправления: публично отдавать действующую политику пароля, показывать её до отправки формы, локализовать ошибку и учитывать доступность регистрации. В локальном API уже есть обработка ошибки политики с HTTP 400; требуется включить её в проверяемое исправление.
-- Реализовано локально: публичная политика берётся из auth-service; форма показывает требования, русское сообщение об отказе, состояния загрузки и отключения регистрации. Проверены `TestRegistration*`, `TestUserCreationPasswordPolicyErrors` (включая изменение действующей политики), `go vet ./...`, Vue/TypeScript и Vite build.
-- На сервере созданы только тестовые заявки `registration-test-20260907090501` и `registration-ui-test-0907`, обе `pending`, без одобрения. Полный Go-прогон и локальный UI smoke пока не завершены: процессы зависали без вывода. Установка исправления на MikroTik не выполнена; задача остаётся в работе до завершения проверок и поставки.
-- Статическая сборка Go API для `linux/amd64` с `CGO_ENABLED=0` также прошла.
-- Итог: проверки завершены в Docker, форма проверена в браузере (ошибка короткого пароля и успешная заявка). Исправление опубликовано в 2.2.1 и установлено на MikroTik; прежние ограничения локальных проверок сняты.
-
-## Release gate
-
-### Фикс-релиз 2.2.1 и обновление MikroTik — выполнено (2026-09-07)
-
-- Включить исправление регистрации и парольную политику по умолчанию от 8 символов без требований к составу.
-- Выполнить проверки Vue, Go и Rust, собрать и проверить all-in-one образ; опубликовать версионный тег и обновить `latest` с сохранением поддерживаемых архитектур.
-- Сделать repull контейнера `rustdesk_server_routeros` на MikroTik 10.0.47.1; подтвердить версию, здоровье компонентов, сохранность данных и политику регистрации.
-- При сборке обнаружено принудительное `TARGETARCH=amd64` в Go-стадии; убрать переопределение автоматической архитектуры BuildKit в all-in-one и API Dockerfile. Проверить ELF-архитектуру всех трёх бинарников обоих образов перед публикацией.
-- Подготовлены VERSION 2.2.1 и release notes; Vue/TypeScript/Vite, `go vet ./...` и целевые интеграционные тесты регистрации прошли.
-- Блокер: Docker Desktop не запускается из-за недоступного `AppData/Local/Docker/run/sailor-ingest.sock`. Переименование и удаление отдельного сокета не удалось. Автоматическая проверка отклонила переименование всей временной папки `run` из-за риска для активных служб/сокетов; требуется явное разрешение пользователя на восстановление Docker. Публикация и repull не выполнены.
-- Блокер снят: пользователь запустил Docker Desktop. Linux Go tests/vet и Vue production build прошли; неизменённая Rust-стадия fmt/clippy/tests подтверждена BuildKit-кешем. amd64 контейнер прошёл запуск, проверку трёх ELF-бинарников, версии и регистрации с границей 7/8 символов.
-- Перед обновлением создана серверная копия `rustdesk-backup-20260907-062625.551201917.db`, SQLite `quick_check=ok`; исходное состояние: 6 пользователей, 129 устройств, API/HBBS/HBBR/DB online.
-- Итог: multi-architecture сборка завершена; ARM64 и amd64 прошли проверку ELF всех трёх бинарников, health, версии, отклонения 7-символьного пароля и регистрации 8-символьного со статусом pending. Vue TypeScript/Vite, полный Go tests/vet и статические сборки прошли; Rust release собран для обеих архитектур.
-- Опубликованы `blackxdog/remote-control-server-ros:2.2.1` и `latest`, общий OCI digest `sha256:e1ad1e4a46601d935082114d21e09892915376c20f6449dba9605a67eef447b8` (linux/amd64 + linux/arm64).
-- Repull `rustdesk_server_routeros` выполнен. На MikroTik подтверждены UI 2.2.1, image-id `8b9f479644db1651c9bcd4dd81e3f8888d0dab56496e82c0b6774b974a7af28c`, API/HBBS/HBBR/DB online, 6 пользователей и 129 устройств (82 online на момент проверки). Минимум 8 символов, require_login и обязательное одобрение сохранены.
-
-### Упрощение парольной политики — выполнено (2026-09-07)
-
-- Согласовано: минимум 8 символов, без обязательных заглавных/строчных букв, цифр и спецсимволов.
-- План: обновить значения по умолчанию в проекте и сохранить политику через API работающего сервера.
-- Проверка: 7 символов отклоняются, 8 символов принимаются; прочие настройки сохраняются.
-- Применено через `PATCH /api/admin/settings` и подтверждено повторным чтением: минимум 8, все четыре требования к составу выключены, остальные настройки не изменены. Перезапуск не нужен, политика сохранена в БД.
-- Проверка на работающем сервере: 7 строчных букв → отказ; 8 строчных букв → HTTP 202, `pending` (заявка `policy-test-20260907091857`).
-- Обновлены значения по умолчанию в API и форме настроек. Тесты `TestPasswordPolicy*` прошли, включая длину Unicode; команда Go сообщила об ошибке очистки временного exe, занятого другим процессом, после успешного выполнения тестов.
-
-Every release must pass Vue TypeScript validation and production build, Go formatting/vet/tests/static linux-amd64 build, and Rust formatting/clippy/tests/release build. Container publication and target-host deployment are separate post-gate operations.
-
-## Runtime security configuration
-
-The administrator console persists operational security policy in the database. Environment values remain first-run defaults; once an administrator saves a value, it survives restarts and takes precedence. `require_login` and `require_device_deployment` are propagated to every HBBS node through the internal event stream and periodic snapshot reconciliation. Registration, access-token/session lifetimes, and the TOTP enforcement mode apply immediately to new authentication operations. Existing signed tokens keep their original expiry, while revocation and force-login remain available for immediate invalidation.
+| ID | Статус | Результат и критерий готовности |
+|---|---|---|
+| REL-PUB-01 | В работе, разрешено пользователем 2026-09-09 | Исправить выявленные ошибки GitHub CI; проверить и опубликовать текущую amd64 сборку сервера и отдельного relay в Docker Hub и отдельных GitHub-репозиториях. Предварительный выпуск до завершения PAR-01; стабильные теги и production не обновлять. Критерий: проверки Web/Go/Rust, контейнерный smoke, проверка состава на секреты, опубликованные digest и GitHub release, успешный новый CI. ARM64 остаётся отложенной |

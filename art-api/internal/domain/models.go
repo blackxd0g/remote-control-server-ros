@@ -391,19 +391,21 @@ type AddressBookTag struct {
 }
 
 type RelayServer struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Hostname    string    `json:"hostname"`
-	Port        int       `json:"port"`
-	Region      string    `json:"region"`
-	Enabled     bool      `json:"enabled"`
-	Health      string    `json:"health"`
-	LatencyMS   int       `json:"latency_ms"`
-	Connections int       `json:"connections"`
-	Bandwidth   int64     `json:"bandwidth"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Deleted     bool      `json:"deleted,omitempty"`
+	ControlMode      string    `json:"control_mode,omitempty"`
+	ControlConnected bool      `json:"control_connected"`
+	ID               string    `json:"id"`
+	Name             string    `json:"name"`
+	Hostname         string    `json:"hostname"`
+	Port             int       `json:"port"`
+	Region           string    `json:"region"`
+	Enabled          bool      `json:"enabled"`
+	Health           string    `json:"health"`
+	LatencyMS        int       `json:"latency_ms"`
+	Connections      int       `json:"connections"`
+	Bandwidth        int64     `json:"bandwidth"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	Deleted          bool      `json:"deleted,omitempty"`
 }
 
 type RelayMetric struct {

@@ -133,7 +133,7 @@ RouterOS время. Нужны пакет `container` и `device-mode container
 | `publicHost` | запрос, обязательно | Публичное DNS-имя для клиентов |
 | `adminUsername` | `admin` | Запрашивается; Enter оставляет `admin` |
 | `adminPassword` | пусто | Enter включает генерацию одноразового пароля сервером |
-| `containerAddress` | `172.31.255.2/30` | Адрес изолированного VETH |
+| `containerAddress` | `192.0.2.10/30` | Адрес изолированного VETH |
 | `wanList` | `WAN` | Interface list для публикации протокольных портов |
 
 | MikroTik | Архитектура RouterOS | Платформа контейнера | Рекомендация |
@@ -144,7 +144,7 @@ RouterOS время. Нужны пакет `container` и `device-mode container
 
 > [!IMPORTANT]
 > При выборе `system` убедитесь, что внутренней памяти достаточно. До импорта
-> проверьте сеть `172.31.255.0/30`, interface list `WAN`
+> проверьте сеть `192.0.2.10/30`, interface list `WAN`
 > и действующие правила firewall. Проверяйте скачанные скрипты перед запуском;
 > для production лучше использовать URL конкретного релиза вместо ветки `main`.
 
@@ -250,3 +250,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 | [`deploy/compose.yaml`](deploy/compose.yaml) | Раздельный deployment |
 | [`docker/`](docker/) | Production multi-stage Dockerfiles |
 | [`docs/`](docs/) | Архитектура, безопасность, совместимость и эксплуатация |
+
+## Кандидат 2.3.0-rc.1
+
+Текущий amd64 кандидат описан в [release notes](docs/release-2.3.0-rc.1.md). Стабильный 2.2.1/latest сохранён. Приёмка официального клиента частичная, ARM64 отложена. Перед испытанием обновления прочитайте ограничения и порядок резервирования.

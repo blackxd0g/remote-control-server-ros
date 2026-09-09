@@ -59,6 +59,12 @@ export interface InfrastructureSample { timestamp:string; cpu_percent:number; me
 export interface ServiceCommand { id:string; service:string; target_instance:string; type:string; created_at:string; expires_at:string; acknowledged_at?:string; acknowledged_by?:string }
 export interface UserPresence { user_id:string; username:string; display_name:string; state:'online'|'idle'|'offline'|'pending'|'disabled'; last_seen_at?:string; client_device_id?:string; active_devices:number }
 export interface PresenceSnapshot { online:number; idle:number; offline:number; users:UserPresence[] }
+export interface RelayDeliveryStatus {
+  runtime:{connected:boolean;observed_at:string;delivery:null|{pending:number;quarantined:number;reserved:number;capacity:number;healthy:boolean;blocked:boolean;oldest_at:number;sample:Array<{id:string;uuid:string;status:string;created_at:number;reason:string}>}}
+  history:{authorizations:number;receipts:number;archived:number;eligible:number}
+  retention_days:number
+  batch_limit:number
+}
 export interface LiveConnection { key:string; status:'active'|'stale'|'closed'; actor_user_id?:string; actor_session_id?:string; controller_device_id?:string; controller_name?:string; controller_login?:string; target_rustdesk_id:string; connection_type:number; ip?:string; transport?:'relay'|'direct'|string; relay_uuid?:string; relay_server?:string; started_at:string; last_seen_at:string; closed_at?:string; duration_seconds:number }
 export interface LiveConnectionSnapshot { active:number; stale:number; closed:number; items:LiveConnection[] }
 export interface ConnectionContainment { status:'contained'|'already_closed'; session_revoked?:boolean; new_connections_blocked?:boolean; transport_interrupted?:boolean; transport_status?:'terminated'|'not_found'|'unconfirmed'|'not_available'; connection:LiveConnection }
@@ -75,7 +81,7 @@ export interface BuilderWorker { id:string; name:string; hostname:string; versio
 export interface AddressBook { id:string; name:string; kind:'personal'|'shared'; owner_user_id:string; permission:'read'|'write'|'manage'; can_manage:boolean; created_at:string; updated_at:string }
 export interface AddressBookGrant { id:string; address_book_id:string; subject_type:'user'|'user_group'; subject_id:string; permission:'read'|'write'; created_at:string; updated_at:string }
 export interface AddressBookEntry { id:string; address_book_id:string; rustdesk_id:string; alias:string; folder:string; favourite:boolean; created_at:string }
-export interface RelayServer { id:string; name:string; hostname:string; port:number; region:string; enabled:boolean; health:string; latency_ms:number; connections:number; bandwidth:number; created_at:string; updated_at:string }
+export interface RelayServer { id:string; name:string; hostname:string; port:number; region:string; enabled:boolean; health:string; latency_ms:number; connections:number; bandwidth:number; created_at:string; updated_at:string; control_mode?:'legacy'|'wss'; control_connected?:boolean }
 export interface RelayMetric { relay_id:string; recorded_at:string; health:string; latency_ms:number; connections:number; bandwidth:number }
 export interface ACLRule { id:string; name:string; subject_type:string; subject_id:string; target_type:string; target_id:string; permissions:string[]; effect:'allow'|'deny'; enabled:boolean; priority:number }
 export interface ACLRuleTrace { rule_id:string; name:string; priority:number; effect:'allow'|'deny'; subject_matched:boolean; target_matched:boolean; permission_matched:boolean; matched:boolean }

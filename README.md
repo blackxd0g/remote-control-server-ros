@@ -131,7 +131,7 @@ and starts the updated container.
 | `publicHost` | prompted, required | Public DNS name used by clients |
 | `adminUsername` | `admin` | Prompted; Enter keeps `admin` |
 | `adminPassword` | empty | Enter lets the server generate a one-time password |
-| `containerAddress` | `172.31.255.2/30` | Isolated VETH address |
+| `containerAddress` | `192.0.2.10/30` | Isolated VETH address |
 | `wanList` | `WAN` | Interface list used by published protocol ports |
 
 | MikroTik | RouterOS architecture | Container platform | Guidance |
@@ -142,7 +142,7 @@ and starts the updated container.
 
 > [!IMPORTANT]
 > When selecting `system`, make sure internal storage has enough free space. Check
-> the `172.31.255.0/30` link network, the `WAN` interface list,
+> the `192.0.2.10/30` link network, the `WAN` interface list,
 > and firewall policy before importing the script. Review fetched scripts before
 > execution; for production, prefer a versioned release URL instead of `main`.
 
@@ -250,6 +250,6 @@ compatibility, and develop the security and management features of future versio
 | [`docs/`](docs/) | Architecture, security, compatibility, and operations |
 | [`README_RU.md`](README_RU.md) | Russian documentation |
 
-## Standalone relay and Pro parity
+## 2.3.0-rc.1 candidate
 
-See [the minimal relay container](https://github.com/blackxd0g/remote-control-relay), [the Pro parity audit](docs/pro-parity-audit-2026-09-07.md), and [the roadmap](docs/roadmap-status.md).
+The current amd64 candidate is documented in [release notes](docs/release-2.3.0-rc.1.md). Stable 2.2.1/latest remains unchanged. Official-client acceptance is partial; ARM64 verification is deferred. See the limitations before testing an upgrade.

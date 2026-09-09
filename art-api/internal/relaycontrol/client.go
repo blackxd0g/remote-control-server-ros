@@ -36,6 +36,27 @@ func New(secret []byte) *Client {
 	return &Client{secret: strings.TrimSpace(string(secret)), timeout: 1500 * time.Millisecond}
 }
 
+// Permit is retained only for relays without a secure-control credential row.
+func (c *Client) Permit(ctx context.Context, relayServer, relayUUID string) error {
+	address, err := controlAddress(relayServer)
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(map[string]any{"action": "permit", "token": c.secret, "uuid": relayUUID, "expires_in": 30})
+	if err != nil {
+		return err
+	}
+	dialer := net.Dialer{Timeout: c.timeout}
+	conn, err := dialer.DialContext(ctx, "udp", address)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	_ = conn.SetWriteDeadline(time.Now().Add(c.timeout))
+	_, err = conn.Write(payload)
+	return err
+}
+
 func (c *Client) Terminate(ctx context.Context, relayServer, relayUUID string) error {
 	address, err := controlAddress(relayServer)
 	if err != nil {

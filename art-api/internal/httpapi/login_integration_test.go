@@ -528,7 +528,16 @@ func TestOfficialClientTFAChallengeAndOneTimeRecoveryCode(t *testing.T) {
 	handler := httpapi.New(authService, mfaService, audit.New(repository), repository, hub, []byte("internal-secret"), httpapi.NewLoginLimiter(20, time.Minute, time.Minute)).Handler()
 
 	challenge := clientTFAChallenge(t, handler)
-	request := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewReader([]byte(fmt.Sprintf(`{"type":"tfa_code","tfaCode":%q,"secret":%q}`, code, challenge))))
+	invalid := apiRequest(t, handler, http.MethodPost, "/api/login", "", fmt.Sprintf(`{"type":"email_code","tfaCode":"not-a-code","secret":%q,"username":"mfa"}`, challenge))
+	var invalidChallenge struct {
+		Type        string `json:"type"`
+		TFAType     string `json:"tfa_type"`
+		AccessToken string `json:"access_token"`
+	}
+	if invalid.Code != http.StatusUnauthorized || json.Unmarshal(invalid.Body.Bytes(), &invalidChallenge) != nil || invalidChallenge.Type != "email_check" || invalidChallenge.TFAType != "tfa_check" || invalidChallenge.AccessToken != "" {
+		t.Fatal("invalid official TOTP must retain the challenge dialog without issuing a token")
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/login", bytes.NewReader([]byte(fmt.Sprintf(`{"type":"email_code","verificationCode":%q,"tfaCode":%q,"secret":%q,"username":"mfa"}`, code, code, challenge))))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -575,10 +584,11 @@ func clientTFAChallenge(t *testing.T, handler http.Handler) string {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	var output struct {
-		Type   string `json:"type"`
-		Secret string `json:"secret"`
+		Type    string `json:"type"`
+		Secret  string `json:"secret"`
+		TFAType string `json:"tfa_type"`
 	}
-	if err := json.Unmarshal(response.Body.Bytes(), &output); err != nil || response.Code != http.StatusOK || output.Type != "tfa_check" || output.Secret == "" {
+	if err := json.Unmarshal(response.Body.Bytes(), &output); err != nil || response.Code != http.StatusOK || output.Type != "email_check" || output.TFAType != "tfa_check" || output.Secret == "" {
 		t.Fatalf("invalid TFA challenge: %d %s", response.Code, response.Body.String())
 	}
 	return output.Secret

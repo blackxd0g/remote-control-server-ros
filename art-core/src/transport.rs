@@ -6,7 +6,8 @@ use std::{
 use base64::{
     Engine as _, alphabet,
     engine::{
-        DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig, general_purpose::STANDARD_NO_PAD,
+        DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig,
+        general_purpose::{STANDARD, STANDARD_NO_PAD},
     },
 };
 use bytes::Bytes;
@@ -76,7 +77,8 @@ impl ServerKey {
     }
 
     pub fn public_key_base64(&self) -> String {
-        STANDARD_NO_PAD.encode(self.public)
+        // Official clients use a strict Base64 decoder for the configured key.
+        STANDARD.encode(self.public)
     }
 
     /// RustDesk clients expect `PunchHoleResponse.pk` to contain a protobuf
@@ -107,8 +109,7 @@ fn decode_standard_base64(value: &str) -> anyhow::Result<Vec<u8>> {
 fn public_key_matches(path: &Path, expected: &SigningPublicKey) -> bool {
     fs::read_to_string(path)
         .ok()
-        .and_then(|value| decode_standard_base64(value.trim()).ok())
-        .is_some_and(|value| value.as_slice() == expected)
+        .is_some_and(|value| value.trim() == STANDARD.encode(expected))
 }
 
 fn secure_secret_permissions(path: &Path) -> io::Result<()> {
@@ -324,6 +325,22 @@ mod tests {
         let imported = ServerKey::load_or_create(&private_path).unwrap();
 
         assert_eq!(imported.public_key_base64(), generated.public_key_base64());
+        // Legacy unpadded public files must be normalised without rotating the
+        // private key, so existing clients retain the same cryptographic identity.
+        let before = std::fs::read(&private_path).unwrap();
+        std::fs::write(
+            private_path.with_extension("pub"),
+            STANDARD_NO_PAD.encode(imported.public),
+        )
+        .unwrap();
+        let normalised = ServerKey::load_or_create(&private_path).unwrap();
+        let public_text = std::fs::read_to_string(private_path.with_extension("pub")).unwrap();
+        assert_eq!(
+            STANDARD.decode(public_text.trim()).unwrap(),
+            imported.public
+        );
+        assert_eq!(normalised.public_key_base64(), public_text.trim());
+        assert_eq!(std::fs::read(&private_path).unwrap(), before);
         std::fs::remove_dir_all(directory).unwrap();
     }
 

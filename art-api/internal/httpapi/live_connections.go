@@ -130,7 +130,10 @@ func (s *Server) containLiveConnection(response http.ResponseWriter, request *ht
 	transportStatus := "not_available"
 	if record.Transport == "relay" && record.RelayUUID != "" && record.RelayServer != "" && s.relayControl != nil {
 		terminateContext, cancel := context.WithTimeout(request.Context(), 2*time.Second)
-		terminateErr := s.relayControl.Terminate(terminateContext, record.RelayServer, record.RelayUUID)
+		status, terminateErr := s.relayCommand(terminateContext, record.RelayServer, record.RelayUUID, "terminate")
+		if terminateErr == nil && status == "not_found" {
+			terminateErr = relaycontrol.ErrNotFound
+		}
 		cancel()
 		switch {
 		case terminateErr == nil:

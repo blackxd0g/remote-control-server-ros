@@ -1,4 +1,4 @@
-import type { ACLEvaluation, ACLRule, AutomationRule, AutomationRun, AddressBook, AddressBookEntry, AddressBookGrant, APIToken, AuditEvent, AuditPage, AuditQuery, AuditSummary, BackupArtifact, BackupInspection, BuilderWorker, ClientBuild, ClientProfile, ClientProfileAssignment, ClientProfileBundle, ClusterState, ConnectionContainment, CurrentUser, DashboardLayout, Device, Diagnostics, Infrastructure, LiveConnectionSnapshot, LoginResponse, ManagedGroup, ManagedUser, Notification, OIDCIdentity, PresenceSnapshot, RelayMetric, RelayServer, RoleDefinition, RuntimeSettings, ServiceCommand, Session, SessionPage, SessionSummary, Strategy, StrategyEvaluation, StrategySettingDefinition, TOTPEnrollment, Webhook, WebhookDelivery } from './types'
+import type { ACLEvaluation, ACLRule, AutomationRule, AutomationRun, AddressBook, AddressBookEntry, AddressBookGrant, APIToken, AuditEvent, AuditPage, AuditQuery, AuditSummary, BackupArtifact, BackupInspection, BuilderWorker, ClientBuild, ClientProfile, ClientProfileAssignment, ClientProfileBundle, ClusterState, ConnectionContainment, CurrentUser, DashboardLayout, Device, Diagnostics, Infrastructure, LiveConnectionSnapshot, LoginResponse, ManagedGroup, ManagedUser, Notification, OIDCIdentity, PresenceSnapshot, RelayDeliveryStatus, RelayMetric, RelayServer, RoleDefinition, RuntimeSettings, ServiceCommand, Session, SessionPage, SessionSummary, Strategy, StrategyEvaluation, StrategySettingDefinition, TOTPEnrollment, Webhook, WebhookDelivery } from './types'
 
 const tokenKey = 'rds.access_token'
 const legacyTokenKey = 'art.access_token'
@@ -217,6 +217,13 @@ export const api = {
   putAddressBookGrant: (id:string,input:{subject_type:'user'|'user_group';subject_id:string;permission:'read'|'write'}) => request<AddressBookGrant>(`/api/address-books/${id}/grants`,{method:'PUT',body:JSON.stringify(input)}),
   deleteAddressBookGrant: (bookID:string,grantID:string) => request<null>(`/api/address-books/${bookID}/grants/${grantID}`,{method:'DELETE'}),
   relayServers: () => request<RelayServer[]>('/api/admin/relay-servers'),
+  relayDelivery: (id:string) => request<RelayDeliveryStatus>(`/api/admin/relay-servers/${encodeURIComponent(id)}/delivery`),
+  relayQuarantine: (id:string, revision='', offset=0) => request<{revision:string;total:number;offset:number;events:{id:string;uuid:string;status:string;reason:string;created_at:number}[]}>(`/api/admin/relay-servers/${encodeURIComponent(id)}/quarantine?revision=${encodeURIComponent(revision)}&offset=${offset}`),
+  exportRelayQuarantine: (id:string, revision:string) => request<{relay_id:string;revision:string;total:number;events:unknown[]}>(`/api/admin/relay-servers/${encodeURIComponent(id)}/quarantine/export?revision=${encodeURIComponent(revision)}`),
+  archiveRelayQuarantine: (id:string, revision:string) => request<{revision:string;backup:string}>(`/api/admin/relay-servers/${encodeURIComponent(id)}/quarantine/archive`,{method:'POST',body:JSON.stringify({revision,confirm:true})}),
+  compactRelayDelivery: (id:string) => request<{archived:number}>(`/api/admin/relay-servers/${encodeURIComponent(id)}/delivery/compact`,{method:'POST'}),
+  relayEnrollment: (id:string) => request<{relay_id:string;enrollment_token:string;expires_at:string}>(`/api/admin/relay-servers/${id}/enrollment`,{method:'POST'}),
+  revokeRelayCredential: (id:string) => request<null>(`/api/admin/relay-servers/${id}/credential`,{method:'DELETE'}),
   createRelayServer: (input:Record<string,unknown>) => request<RelayServer>('/api/admin/relay-servers',{method:'POST',body:JSON.stringify(input)}),
   updateRelayServer: (id:string,input:Record<string,unknown>) => request<RelayServer>(`/api/admin/relay-servers/${id}`,{method:'PATCH',body:JSON.stringify(input)}),
   deleteRelayServer: (id:string) => request<null>(`/api/admin/relay-servers/${id}`,{method:'DELETE'}),

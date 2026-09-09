@@ -28,23 +28,157 @@ pub struct TelemetryConfig {
 #[derive(Clone)]
 pub struct LifecycleReporter {
     sender: mpsc::Sender<LifecycleReport>,
+    durable: Option<Arc<std::sync::Mutex<crate::outbox::Outbox>>>,
 }
 
 #[derive(Clone, Serialize)]
-struct LifecycleReport {
-    uuid: String,
-    state: &'static str,
+pub(crate) struct LifecycleReport {
+    pub(crate) uuid: String,
+    pub(crate) state: &'static str,
 }
 
 impl Default for LifecycleReporter {
     fn default() -> Self {
         let (sender, receiver) = mpsc::channel(1);
         drop(receiver);
-        Self { sender }
+        Self {
+            sender,
+            durable: None,
+        }
     }
 }
 
 impl LifecycleReporter {
+    pub(crate) async fn manage_quarantine(
+        &self,
+        action: String,
+        revision: String,
+        offset: usize,
+    ) -> anyhow::Result<crate::outbox::QuarantinePage> {
+        let outbox = self
+            .durable
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("durable outbox missing"))?;
+        tokio::task::spawn_blocking(move || {
+            let mut q = outbox
+                .lock()
+                .map_err(|_| anyhow::anyhow!("outbox lock poisoned"))?;
+            if action == "archive" {
+                q.archive_quarantine(&revision)?;
+                Ok(crate::outbox::QuarantinePage {
+                    revision,
+                    ..Default::default()
+                })
+            } else {
+                anyhow::ensure!(action == "list", "unsupported quarantine action");
+                q.quarantine_page(&revision, offset)
+            }
+        })
+        .await?
+    }
+    pub(crate) fn channel() -> (Self, mpsc::Receiver<LifecycleReport>) {
+        let (sender, receiver) = mpsc::channel(1024);
+        (
+            Self {
+                sender,
+                durable: None,
+            },
+            receiver,
+        )
+    }
+    pub(crate) fn durable(path: std::path::PathBuf) -> anyhow::Result<Self> {
+        let (mut reporter, _) = Self::channel();
+        reporter.durable = Some(Arc::new(std::sync::Mutex::new(
+            crate::outbox::Outbox::open(path)?,
+        )));
+        Ok(reporter)
+    }
+    pub(crate) fn available(&self) -> bool {
+        self.durable
+            .as_ref()
+            .is_none_or(|outbox| outbox.lock().is_ok_and(|q| q.can_admit()))
+    }
+    pub(crate) async fn report(&self, uuid: &str, status: &'static str) -> anyhow::Result<()> {
+        if let Some(outbox) = self.durable.clone() {
+            let uuid = uuid.to_owned();
+            tokio::task::spawn_blocking(move || {
+                outbox
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("outbox lock poisoned"))?
+                    .report(&uuid, status)
+            })
+            .await??;
+        } else {
+            self.try_report(uuid, status);
+        }
+        Ok(())
+    }
+    pub(crate) async fn next_event(&self) -> anyhow::Result<Option<crate::outbox::Event>> {
+        let outbox = self
+            .durable
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("durable outbox missing"))?;
+        tokio::task::spawn_blocking(move || {
+            let mut queue = outbox
+                .lock()
+                .map_err(|_| anyhow::anyhow!("outbox lock poisoned"))?;
+            if !queue.healthy() {
+                queue.flush()?;
+            }
+            Ok(queue.front())
+        })
+        .await?
+    }
+    pub(crate) async fn acknowledge(
+        &self,
+        id: String,
+        uuid: String,
+        status: String,
+    ) -> anyhow::Result<()> {
+        let outbox = self
+            .durable
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("durable outbox missing"))?;
+        tokio::task::spawn_blocking(move || {
+            outbox
+                .lock()
+                .map_err(|_| anyhow::anyhow!("outbox lock poisoned"))?
+                .acknowledge(&id, &uuid, &status)
+        })
+        .await?
+    }
+    pub(crate) async fn delivery_status(&self) -> anyhow::Result<crate::outbox::DeliveryStatus> {
+        let outbox = self
+            .durable
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("durable outbox missing"))?;
+        tokio::task::spawn_blocking(move || {
+            Ok(outbox
+                .lock()
+                .map_err(|_| anyhow::anyhow!("outbox lock poisoned"))?
+                .status())
+        })
+        .await?
+    }
+    pub(crate) async fn quarantine(
+        &self,
+        id: String,
+        uuid: String,
+        status: String,
+        reason: String,
+    ) -> anyhow::Result<()> {
+        let outbox = self
+            .durable
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("durable outbox missing"))?;
+        tokio::task::spawn_blocking(move || {
+            outbox
+                .lock()
+                .map_err(|_| anyhow::anyhow!("outbox lock poisoned"))?
+                .quarantine(&id, &uuid, &status, &reason)
+        })
+        .await?
+    }
     pub fn try_report(&self, uuid: &str, state: &'static str) {
         if self
             .sender
@@ -117,7 +251,10 @@ impl TelemetryConfig {
                 }
             }
         });
-        LifecycleReporter { sender }
+        LifecycleReporter {
+            sender,
+            durable: None,
+        }
     }
 }
 

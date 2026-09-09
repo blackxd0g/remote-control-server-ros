@@ -104,6 +104,36 @@ func TestAddressBookOwnershipGrantsAndClientCompatibility(t *testing.T) {
 	if response.Code != http.StatusCreated {
 		t.Fatalf("group writer could not modify shared book: status=%d body=%s", response.Code, response.Body.String())
 	}
+	seen := map[string]bool{}
+	for _, page := range []string{"1", "2", "3"} {
+		response = apiRequest(t, handler, http.MethodPost, "/api/ab/peers?ab="+book.ID+"&current="+page+"&pageSize=1", readerToken, "")
+		var value struct {
+			Total int
+			Data  []struct{ ID string }
+		}
+		if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &value) != nil || value.Total != 2 {
+			t.Fatal("invalid official page response")
+		}
+		expected := 1
+		if page == "3" {
+			expected = 0
+		}
+		if len(value.Data) != expected {
+			t.Fatal("pagination repeated all entries")
+		}
+		for _, peer := range value.Data {
+			if seen[peer.ID] {
+				t.Fatal("duplicate across pages")
+			}
+			seen[peer.ID] = true
+		}
+	}
+	for _, query := range []string{"current=0&pageSize=1", "current=1&pageSize=0", "current=1&pageSize=1001", "current=999999999999999999999&pageSize=100"} {
+		response = apiRequest(t, handler, http.MethodPost, "/api/ab/peers?ab="+book.ID+"&"+query, readerToken, "")
+		if response.Code != 400 {
+			t.Fatal("invalid page accepted")
+		}
+	}
 	response = apiRequest(t, handler, http.MethodPost, "/api/ab/peers?ab="+book.ID, readerToken, `{}`)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"id":"100000001"`) {
 		t.Fatalf("compatible shared peers response failed: status=%d body=%s", response.Code, response.Body.String())
@@ -171,6 +201,41 @@ func TestAddressBookOwnershipGrantsAndClientCompatibility(t *testing.T) {
 	response = apiRequest(t, handler, http.MethodGet, "/api/ab", readerToken, "")
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"data":`) {
 		t.Fatalf("legacy address book compatibility failed: status=%d body=%s", response.Code, response.Body.String())
+	}
+
+	// Pagination must happen after access filtering: hidden books must not affect total.
+	for _, id := range []string{"visible-second", "hidden-third"} {
+		if err := repository.CreateAddressBook(context.Background(), domain.AddressBook{ID: id, Name: id, Kind: "shared", OwnerUserID: "admin", CreatedAt: now, UpdatedAt: now}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	response = apiRequest(t, handler, http.MethodPut, "/api/address-books/visible-second/grants", adminToken, `{"subject_type":"user","subject_id":"reader","permission":"read"}`)
+	if response.Code != http.StatusOK {
+		t.Fatal("second shared book grant failed")
+	}
+	seenProfiles := map[string]bool{}
+	for _, page := range []string{"1", "2", "3"} {
+		response = apiRequest(t, handler, http.MethodPost, "/api/ab/shared/profiles?current="+page+"&pageSize=1", readerToken, "")
+		var profiles struct {
+			Total int
+			Data  []struct{ Guid string }
+		}
+		if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &profiles) != nil || profiles.Total != 2 {
+			t.Fatalf("invalid filtered shared page: status=%d total=%d", response.Code, profiles.Total)
+		}
+		expected := 1
+		if page == "3" {
+			expected = 0
+		}
+		if len(profiles.Data) != expected {
+			t.Fatal("incorrect shared page size")
+		}
+		for _, profile := range profiles.Data {
+			if (profile.Guid != book.ID && profile.Guid != "visible-second") || seenProfiles[profile.Guid] {
+				t.Fatal("shared pages leaked or repeated a book")
+			}
+			seenProfiles[profile.Guid] = true
+		}
 	}
 }
 

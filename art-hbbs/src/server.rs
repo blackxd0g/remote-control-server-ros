@@ -497,12 +497,36 @@ impl RendezvousServer {
         if request.uuid.is_empty() {
             request.uuid = uuid::Uuid::new_v4().to_string();
         }
-        let relay_server = self.gate.select_relay(&self.relay_server);
+        let relay_server = match self.select_control_ready_relay().await {
+            Ok(value) => value,
+            Err(_) => {
+                return connection
+                    .send(RendezvousMessage {
+                        union: Some(rendezvous_message::Union::RelayResponse(RelayResponse {
+                            refuse_reason: "Relay temporarily unavailable".into(),
+                            ..Default::default()
+                        })),
+                    })
+                    .await;
+            }
+        };
         let signed_peer_key = self
             .server_key
             .sign_peer_key(&request.id, &target.public_key)?;
-        self.issue_relay_permit(&request.uuid, &relay_server)
-            .await?;
+        if self
+            .issue_relay_permit(&request.uuid, &relay_server)
+            .await
+            .is_err()
+        {
+            return connection
+                .send(RendezvousMessage {
+                    union: Some(rendezvous_message::Union::RelayResponse(RelayResponse {
+                        refuse_reason: "Relay authorization unavailable".into(),
+                        ..Default::default()
+                    })),
+                })
+                .await;
+        }
         self.gate.record_relay_assignment(
             &decision,
             &request.id,
@@ -535,6 +559,18 @@ impl RendezvousServer {
     }
 
     async fn issue_relay_permit(&self, uuid: &str, relay_server: &str) -> anyhow::Result<()> {
+        // Gateway is the safe default. Direct UDP requires an explicit legacy opt-in.
+        if std::env::var("RDS_HBBS_RELAY_CONTROL_MODE").as_deref() != Ok("legacy") {
+            self.http
+                .post(format!("{}/internal/v1/relay/permit", self.api_base))
+                .header("X-RDS-Internal-Token", &self.internal_token)
+                .timeout(std::time::Duration::from_secs(4))
+                .json(&json!({"uuid": uuid, "address": relay_server}))
+                .send()
+                .await?
+                .error_for_status()?;
+            return Ok(());
+        }
         let socket = UdpSocket::bind("0.0.0.0:0").await?;
         let payload =
             json!({"token": self.internal_token, "uuid": uuid, "expires_in": 60}).to_string();
@@ -542,6 +578,30 @@ impl RendezvousServer {
             .unwrap_or_else(|| self.relay_control_address.clone());
         socket.send_to(payload.as_bytes(), &control_address).await?;
         Ok(())
+    }
+
+    async fn select_control_ready_relay(&self) -> anyhow::Result<String> {
+        if std::env::var("RDS_HBBS_RELAY_CONTROL_MODE").as_deref() == Ok("legacy") {
+            return Ok(self.gate.select_relay(&self.relay_server));
+        }
+        let response: serde_json::Value = self
+            .http
+            .get(format!("{}/internal/v1/relay/select", self.api_base))
+            .header("X-RDS-Internal-Token", &self.internal_token)
+            .timeout(std::time::Duration::from_secs(3))
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        let address = response["relay_server"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("invalid relay selection"))?;
+        anyhow::ensure!(
+            !address.is_empty() && address.len() <= 300,
+            "invalid relay address"
+        );
+        Ok(address.to_owned())
     }
 
     fn report_device(&self, rustdesk_id: String, client_uuid: String, address: std::net::IpAddr) {
